@@ -1,3 +1,7 @@
 # DUAL_AIRFOIL_GROUP8_YANG
 
-I will add instructions here.
+## YOU WILL NEED:
+* Visual Studio Code
+    * PlatformIO extension
+    * Serial Monitor extension
+
