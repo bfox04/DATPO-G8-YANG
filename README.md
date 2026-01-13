@@ -4,4 +4,5 @@
 * Visual Studio Code
     * PlatformIO extension
     * Serial Monitor extension
+* GitHub Desktop (recommended)
 
