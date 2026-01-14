@@ -8,8 +8,8 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "C:/Users/foxbr/OneDrive - Wright State University/z_misc/F25/ME4910/code/PlatformIO/Projects/Octopus_Minimal-main/include",
-                "C:/Users/foxbr/OneDrive - Wright State University/z_misc/F25/ME4910/code/PlatformIO/Projects/Octopus_Minimal-main/src",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/include",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/inc",
@@ -31,7 +31,7 @@
                 "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/Include",
                 "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/PrivateInclude",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino",
-                "C:/Users/foxbr/OneDrive - Wright State University/z_misc/F25/ME4910/code/PlatformIO/Projects/Octopus_Minimal-main/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/CMSIS_DSP/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/EEPROM/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/IWatchdog/src",
@@ -51,8 +51,8 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "C:/Users/foxbr/OneDrive - Wright State University/z_misc/F25/ME4910/code/PlatformIO/Projects/Octopus_Minimal-main/include",
-                    "C:/Users/foxbr/OneDrive - Wright State University/z_misc/F25/ME4910/code/PlatformIO/Projects/Octopus_Minimal-main/src",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/include",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/inc",
@@ -74,7 +74,7 @@
                     "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/Include",
                     "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/PrivateInclude",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino",
-                    "C:/Users/foxbr/OneDrive - Wright State University/z_misc/F25/ME4910/code/PlatformIO/Projects/Octopus_Minimal-main/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/CMSIS_DSP/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/EEPROM/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/IWatchdog/src",
