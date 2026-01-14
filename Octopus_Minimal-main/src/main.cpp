@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-// --- MOTOR DEFINITIONS (0-7) ---
+// --- MOTOR DEFINITIONS ---
 #define ENABLE_PIN0 PF14
 #define STEP_PIN0   PF13
 #define DIR_PIN0    PF12
@@ -44,7 +44,7 @@
 
 // --- ENCODER SETTINGS ---
 // Adjust this to match your encoder's datasheet (e.g., 400, 600, 1000)
-const float PULSES_PER_REV = 600.0; 
+const float PULSES_PER_REV = 1000.0; 
 
 // Volatile variables are required for variables modified inside interrupts
 volatile long encoderTicks = 0;
@@ -125,7 +125,7 @@ void loop() {
     // 2. ENCODER REPORTING LOGIC
     // Print only if the position has changed to keep Serial clean
     if (encoderTicks != lastReportedTicks) {
-        float angle = (encoderTicks / PULSES_PER_REV) * 360.0;
+        float angle = (encoderTicks / PULSES_PER_REV) * 180.0;
         
         Serial.print("Ticks: ");
         Serial.print(encoderTicks);
