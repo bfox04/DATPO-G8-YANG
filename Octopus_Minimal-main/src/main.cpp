@@ -48,8 +48,8 @@ volatile long encoderTicks = 0;
 long lastReportedTicks = 0;
 
 // --- MOTION SETTINGS ---
-const float TARGET_DEGREES = 90.0;  // Set how far you want to twist
-const int MICROSTEP_SETTING = 16;   // Set this to match your driver jumpers
+const float TARGET_DEGREES = 180.0;  // Set how far you want to twist
+const int MICROSTEP_SETTING = 8;   // Set this to match your driver jumpers
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
 const long TARGET_STEPS = (TARGET_DEGREES / 360.0) * STEPS_PER_REV;
 
