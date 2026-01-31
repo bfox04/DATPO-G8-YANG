@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <AccelStepper.h>
 
 // --- MOTOR DEFINITIONS ---
 #define ENABLE_PIN0 PF14
@@ -39,33 +40,42 @@
 #define FAN4_PIN    PD14
 
 // --- ENCODER DEFINITIONS ---
-#define EAplus      PG6   // Phase A
-#define EBplus      PG9   // Phase B
-
-// --- ENCODER SETTINGS ---
-// Adjust this to match your encoder's datasheet (e.g., 400, 600, 1000)
+#define EAplus      PG6
+#define EBplus      PG9
 const float PULSES_PER_REV = 2000.0; 
 
-// Volatile variables are required for variables modified inside interrupts
 volatile long encoderTicks = 0;
 long lastReportedTicks = 0;
 
-// --- TIMING VARIABLES ---
-unsigned long previousTime = 0;
-const long interval = 3000;          // Switch direction every 3 seconds
-bool motorDirection = HIGH;
+// --- MOTION SETTINGS ---
+const float TARGET_DEGREES = 90.0;  // Set how far you want to twist
+const int MICROSTEP_SETTING = 16;   // Set this to match your driver jumpers
+const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
+const long TARGET_STEPS = (TARGET_DEGREES / 360.0) * STEPS_PER_REV;
 
-// --- ENCODER INTERRUPT SERVICE ROUTINE (ISR) ---
-// This runs instantly whenever EAplus (Phase A) changes state
+const long INTERVAL_MS = 3000;      // Move every 3 seconds
+unsigned long previousTime = 0;
+bool toggleDir = true;
+
+// --- ACCELSTEPPER OBJECTS ---
+AccelStepper steppers[] = {
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN0, DIR_PIN0),
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN1, DIR_PIN1),
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN2, DIR_PIN2),
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN3, DIR_PIN3),
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN4, DIR_PIN4),
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN5, DIR_PIN5),
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN6, DIR_PIN6),
+    AccelStepper(AccelStepper::DRIVER, STEP_PIN7, DIR_PIN7)
+};
+
+const int numMotors = 8;
+int enPins[] = {ENABLE_PIN0, ENABLE_PIN1, ENABLE_PIN2, ENABLE_PIN3, ENABLE_PIN4, ENABLE_PIN5, ENABLE_PIN6, ENABLE_PIN7};
+
 void handleEncoder() {
     int aState = digitalRead(EAplus);
     int bState = digitalRead(EBplus);
-
-    if (aState == bState) {
-        encoderTicks++;
-    } else {
-        encoderTicks--;
-    }
+    if (aState == bState) encoderTicks++; else encoderTicks--;
 }
 
 void setup() {
@@ -79,80 +89,53 @@ void setup() {
     digitalWrite(FAN2_PIN, HIGH); 
     digitalWrite(FAN4_PIN, HIGH); 
 
-    // SETUP MOTORS (Using a loop for brevity)
-    int stepPins[] = {STEP_PIN0, STEP_PIN1, STEP_PIN2, STEP_PIN3, STEP_PIN4, STEP_PIN5, STEP_PIN6, STEP_PIN7};
-    int dirPins[] = {DIR_PIN0, DIR_PIN1, DIR_PIN2, DIR_PIN3, DIR_PIN4, DIR_PIN5, DIR_PIN6, DIR_PIN7};
-    int enPins[] = {ENABLE_PIN0, ENABLE_PIN1, ENABLE_PIN2, ENABLE_PIN3, ENABLE_PIN4, ENABLE_PIN5, ENABLE_PIN6, ENABLE_PIN7};
-
-    for(int i=0; i<8; i++) {
-        pinMode(stepPins[i], OUTPUT);
-        pinMode(dirPins[i], OUTPUT);
+    // SETUP MOTORS
+    for(int i = 0; i < numMotors; i++) {
         pinMode(enPins[i], OUTPUT);
-        digitalWrite(enPins[i], LOW); // Enable motors
-        digitalWrite(dirPins[i], HIGH);
+        digitalWrite(enPins[i], LOW);
+        
+        steppers[i].setMaxSpeed(1000);
+        steppers[i].setAcceleration(500);
+        steppers[i].moveTo(TARGET_STEPS); // Start by moving to the target
     }
 
-    // SETUP ENCODER
     pinMode(EAplus, INPUT_PULLUP);
     pinMode(EBplus, INPUT_PULLUP);
-    
-    // Attach interrupt to Phase A on any logic change
     attachInterrupt(digitalPinToInterrupt(EAplus), handleEncoder, CHANGE);
-
 }
 
 void loop() {
-    // unsigned long currentTime = millis();
+    unsigned long currentTime = millis();
 
-    // //DIRECTION TOGGLE LOGIC
-    // if (currentTime - previousTime >= interval) {
-    //     previousTime = currentTime;
-    //     motorDirection = !motorDirection;
+    // SYMMETRICAL TOGGLE LOGIC
+    if (currentTime - previousTime >= INTERVAL_MS) {
+        previousTime = currentTime;
+        toggleDir = !toggleDir;
         
-    //     digitalWrite(DIR_PIN0, motorDirection);
-    //     digitalWrite(DIR_PIN1, motorDirection);
-    //     digitalWrite(DIR_PIN2, motorDirection);
-    //     digitalWrite(DIR_PIN3, motorDirection);
-    //     digitalWrite(DIR_PIN4, motorDirection);
-    //     digitalWrite(DIR_PIN5, motorDirection);
-    //     digitalWrite(DIR_PIN6, motorDirection);
-    //     digitalWrite(DIR_PIN7, motorDirection);
+        // Move to TARGET_STEPS, then back to 0
+        long newPosition = toggleDir ? TARGET_STEPS : 0;
+        
+        for(int i = 0; i < numMotors; i++) {
+            steppers[i].moveTo(newPosition);
+        }
+        Serial.print("--- Moving to: ");
+        Serial.print(toggleDir ? TARGET_DEGREES : 0);
+        Serial.println(" degrees ---");
+    }
 
-    //     Serial.println("--- Switching Direction ---");
-    // }
+    // RUN MOTORS
+    for(int i = 0; i < numMotors; i++) {
+        steppers[i].run();
+    }
 
+    // ENCODER REPORTING
     if (encoderTicks != lastReportedTicks) {
         float angle = abs((static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0);
-        
         Serial.print("Ticks: ");
         Serial.print(encoderTicks);
         Serial.print(" | Angle: ");
         Serial.print(angle);
         Serial.println("°");
-
         lastReportedTicks = encoderTicks;
     }
-
-    // // MOTOR STEPPING (Square Wave)
-    // digitalWrite(STEP_PIN0, HIGH);
-    // digitalWrite(STEP_PIN1, HIGH);
-    // digitalWrite(STEP_PIN2, HIGH);
-    // digitalWrite(STEP_PIN3, HIGH);
-    // digitalWrite(STEP_PIN4, HIGH);
-    // digitalWrite(STEP_PIN5, HIGH);
-    // digitalWrite(STEP_PIN6, HIGH);
-    // digitalWrite(STEP_PIN7, HIGH);
-    
-    // delayMicroseconds(500);
-    
-    // digitalWrite(STEP_PIN0, LOW);
-    // digitalWrite(STEP_PIN1, LOW);
-    // digitalWrite(STEP_PIN2, LOW);
-    // digitalWrite(STEP_PIN3, LOW);
-    // digitalWrite(STEP_PIN4, LOW);
-    // digitalWrite(STEP_PIN5, LOW);
-    // digitalWrite(STEP_PIN6, LOW);
-    // digitalWrite(STEP_PIN7, LOW);
-    
-    // delayMicroseconds(500);
 }

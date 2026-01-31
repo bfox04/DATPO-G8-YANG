@@ -10,6 +10,7 @@
             "includePath": [
                 "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/include",
                 "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/src",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/.pio/libdeps/nucleo_f446ze/AccelStepper/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/inc",
@@ -53,6 +54,7 @@
                 "path": [
                     "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/include",
                     "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/src",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/Octopus_Minimal-main/.pio/libdeps/nucleo_f446ze/AccelStepper/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/inc",
