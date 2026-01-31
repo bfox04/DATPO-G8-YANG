@@ -130,12 +130,11 @@ void loop() {
 
     // ENCODER REPORTING
     if (encoderTicks != lastReportedTicks) {
-        float angle = abs((static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0);
-        Serial.print("Ticks: ");
-        Serial.print(encoderTicks);
-        Serial.print(" | Angle: ");
+        float angle = (static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0;
+        Serial.print(" Curr Angle: ");
         Serial.print(angle);
         Serial.println("°");
+        Serial.println(" | x: null y: null");
         lastReportedTicks = encoderTicks;
     }
 }
