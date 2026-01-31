@@ -44,7 +44,7 @@
 
 // --- ENCODER SETTINGS ---
 // Adjust this to match your encoder's datasheet (e.g., 400, 600, 1000)
-const float PULSES_PER_REV = 1000.0; 
+const float PULSES_PER_REV = 2000.0; 
 
 // Volatile variables are required for variables modified inside interrupts
 volatile long encoderTicks = 0;
@@ -99,33 +99,30 @@ void setup() {
     // Attach interrupt to Phase A on any logic change
     attachInterrupt(digitalPinToInterrupt(EAplus), handleEncoder, CHANGE);
 
-    Serial.println("Startup Complete! Encoder homed to 0.");
 }
 
 void loop() {
-    unsigned long currentTime = millis();
+    // unsigned long currentTime = millis();
 
-    // 1. DIRECTION TOGGLE LOGIC
-    if (currentTime - previousTime >= interval) {
-        previousTime = currentTime;
-        motorDirection = !motorDirection;
+    // //DIRECTION TOGGLE LOGIC
+    // if (currentTime - previousTime >= interval) {
+    //     previousTime = currentTime;
+    //     motorDirection = !motorDirection;
         
-        digitalWrite(DIR_PIN0, motorDirection);
-        digitalWrite(DIR_PIN1, motorDirection);
-        digitalWrite(DIR_PIN2, motorDirection);
-        digitalWrite(DIR_PIN3, motorDirection);
-        digitalWrite(DIR_PIN4, motorDirection);
-        digitalWrite(DIR_PIN5, motorDirection);
-        digitalWrite(DIR_PIN6, motorDirection);
-        digitalWrite(DIR_PIN7, motorDirection);
+    //     digitalWrite(DIR_PIN0, motorDirection);
+    //     digitalWrite(DIR_PIN1, motorDirection);
+    //     digitalWrite(DIR_PIN2, motorDirection);
+    //     digitalWrite(DIR_PIN3, motorDirection);
+    //     digitalWrite(DIR_PIN4, motorDirection);
+    //     digitalWrite(DIR_PIN5, motorDirection);
+    //     digitalWrite(DIR_PIN6, motorDirection);
+    //     digitalWrite(DIR_PIN7, motorDirection);
 
-        Serial.println("--- Switching Direction ---");
-    }
+    //     Serial.println("--- Switching Direction ---");
+    // }
 
-    // 2. ENCODER REPORTING LOGIC
-    // Print only if the position has changed to keep Serial clean
     if (encoderTicks != lastReportedTicks) {
-        float angle = (encoderTicks / PULSES_PER_REV) * 180.0;
+        float angle = abs((static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0);
         
         Serial.print("Ticks: ");
         Serial.print(encoderTicks);
@@ -136,26 +133,26 @@ void loop() {
         lastReportedTicks = encoderTicks;
     }
 
-    // 3. MOTOR STEPPING (Square Wave)
-    digitalWrite(STEP_PIN0, HIGH);
-    digitalWrite(STEP_PIN1, HIGH);
-    digitalWrite(STEP_PIN2, HIGH);
-    digitalWrite(STEP_PIN3, HIGH);
-    digitalWrite(STEP_PIN4, HIGH);
-    digitalWrite(STEP_PIN5, HIGH);
-    digitalWrite(STEP_PIN6, HIGH);
-    digitalWrite(STEP_PIN7, HIGH);
+    // // MOTOR STEPPING (Square Wave)
+    // digitalWrite(STEP_PIN0, HIGH);
+    // digitalWrite(STEP_PIN1, HIGH);
+    // digitalWrite(STEP_PIN2, HIGH);
+    // digitalWrite(STEP_PIN3, HIGH);
+    // digitalWrite(STEP_PIN4, HIGH);
+    // digitalWrite(STEP_PIN5, HIGH);
+    // digitalWrite(STEP_PIN6, HIGH);
+    // digitalWrite(STEP_PIN7, HIGH);
     
-    delayMicroseconds(500);
+    // delayMicroseconds(500);
     
-    digitalWrite(STEP_PIN0, LOW);
-    digitalWrite(STEP_PIN1, LOW);
-    digitalWrite(STEP_PIN2, LOW);
-    digitalWrite(STEP_PIN3, LOW);
-    digitalWrite(STEP_PIN4, LOW);
-    digitalWrite(STEP_PIN5, LOW);
-    digitalWrite(STEP_PIN6, LOW);
-    digitalWrite(STEP_PIN7, LOW);
+    // digitalWrite(STEP_PIN0, LOW);
+    // digitalWrite(STEP_PIN1, LOW);
+    // digitalWrite(STEP_PIN2, LOW);
+    // digitalWrite(STEP_PIN3, LOW);
+    // digitalWrite(STEP_PIN4, LOW);
+    // digitalWrite(STEP_PIN5, LOW);
+    // digitalWrite(STEP_PIN6, LOW);
+    // digitalWrite(STEP_PIN7, LOW);
     
-    delayMicroseconds(500);
+    // delayMicroseconds(500);
 }
