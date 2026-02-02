@@ -36,8 +36,6 @@
 
 // --- FAN DEFINITIONS ---
 #define FAN0_PIN    PA8  
-#define FAN2_PIN    PD12  
-#define FAN4_PIN    PD14
 
 // --- ENCODER DEFINITIONS ---
 #define EAplus      PG6
@@ -48,14 +46,10 @@ volatile long encoderTicks = 0;
 long lastReportedTicks = 0;
 
 // --- MOTION SETTINGS ---
-const float TARGET_DEGREES = 180.0;  // Set how far you want to twist
-const int MICROSTEP_SETTING = 8;   // Set this to match your driver jumpers
+const float TARGET_DEGREES = 18.0;  // Edit this value to change stop point
+const int MICROSTEP_SETTING = 8;     
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
 const long TARGET_STEPS = (TARGET_DEGREES / 360.0) * STEPS_PER_REV;
-
-const long INTERVAL_MS = 3000;      // Move every 3 seconds
-unsigned long previousTime = 0;
-bool toggleDir = true;
 
 // --- ACCELSTEPPER OBJECTS ---
 AccelStepper steppers[] = {
@@ -83,58 +77,59 @@ void setup() {
 
     // SETUP FANS
     pinMode(FAN0_PIN, OUTPUT);
-    pinMode(FAN2_PIN, OUTPUT);
-    pinMode(FAN4_PIN, OUTPUT);
     digitalWrite(FAN0_PIN, HIGH); 
-    digitalWrite(FAN2_PIN, HIGH); 
-    digitalWrite(FAN4_PIN, HIGH); 
 
     // SETUP MOTORS
     for(int i = 0; i < numMotors; i++) {
         pinMode(enPins[i], OUTPUT);
         digitalWrite(enPins[i], LOW);
         
-        steppers[i].setMaxSpeed(1000);
-        steppers[i].setAcceleration(500);
-        steppers[i].moveTo(TARGET_STEPS); // Start by moving to the target
+        steppers[i].setMaxSpeed(100);
+        steppers[i].setAcceleration(100);
+        
+        // Set the destination once at startup
+        steppers[i].moveTo(TARGET_STEPS); 
     }
 
     pinMode(EAplus, INPUT_PULLUP);
     pinMode(EBplus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EAplus), handleEncoder, CHANGE);
+
+    Serial.print("Target set to: ");
+    Serial.print(TARGET_DEGREES);
+    Serial.println(" degrees.");
+
+    delay(3000); 
+    Serial.println("Startup delay complete. Program starting...");
 }
 
 void loop() {
-    unsigned long currentTime = millis();
-
-    // SYMMETRICAL TOGGLE LOGIC
-    if (currentTime - previousTime >= INTERVAL_MS) {
-        previousTime = currentTime;
-        toggleDir = !toggleDir;
-        
-        // Move to TARGET_STEPS, then back to 0
-        long newPosition = toggleDir ? TARGET_STEPS : 0;
-        
-        for(int i = 0; i < numMotors; i++) {
-            steppers[i].moveTo(newPosition);
-        }
-        Serial.print("--- Moving to: ");
-        Serial.print(toggleDir ? TARGET_DEGREES : 0);
-        Serial.println(" degrees ---");
-    }
+    // Keep a flag to track if we've finished the move
+    static bool motionComplete = false;
 
     // RUN MOTORS
     for(int i = 0; i < numMotors; i++) {
         steppers[i].run();
     }
 
+    // Check if motor 0 has reached the target
+    if (!motionComplete && steppers[0].distanceToGo() == 0) {
+        Serial.println("--- Target Reached: All motors stopped ---");
+        motionComplete = true;
+        
+        // Optional: Comment the loop below if you want to keep motors enabled (maintain holding torque)
+        // for(int i = 0; i < numMotors; i++) {
+        //     digitalWrite(enPins[i], HIGH);
+        // }
+
+    }
+
     // ENCODER REPORTING
     if (encoderTicks != lastReportedTicks) {
-        float angle = (static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0;
-        Serial.print(" Curr Angle: ");
+        float angle = abs((static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0);
+        Serial.print("Encoder Angle: ");
         Serial.print(angle);
         Serial.println("°");
-        Serial.println(" | x: null y: null");
         lastReportedTicks = encoderTicks;
     }
 }
