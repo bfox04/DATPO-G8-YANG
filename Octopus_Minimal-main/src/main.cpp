@@ -41,18 +41,15 @@
 #define EAplus      PG6
 #define EBplus      PG9
 
-// Your spec is 1000PPR. Using one interrupt with CHANGE gives 2000 ticks per rev.
+// 1000PPR encoder with CHANGE interrupt = 2000 ticks per rev
 const float PULSES_PER_REV = 2000.0; 
-
 volatile long encoderTicks = 0;
 long lastReportedTicks = 0;
 
 // --- MOTION SETTINGS ---
-// 18.0 is a common multiple for 0.225 (motor) and 0.18 (encoder)
-const float TARGET_DEGREES = 18.0;  
+float targetDegrees = 0;            // Variable to hold user input
 const int MICROSTEP_SETTING = 8;     
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
-const long TARGET_STEPS = (TARGET_DEGREES / 360.0) * STEPS_PER_REV;
 
 // --- ACCELSTEPPER OBJECTS ---
 AccelStepper steppers[] = {
@@ -69,7 +66,7 @@ AccelStepper steppers[] = {
 const int numMotors = 8;
 int enPins[] = {ENABLE_PIN0, ENABLE_PIN1, ENABLE_PIN2, ENABLE_PIN3, ENABLE_PIN4, ENABLE_PIN5, ENABLE_PIN6, ENABLE_PIN7};
 
-// ISR updated to read both pins for direction sensing
+// ISR for encoder feedback
 void handleEncoder() {
     int aState = digitalRead(EAplus);
     int bState = digitalRead(EBplus);
@@ -86,46 +83,66 @@ void setup() {
     // SETUP MOTORS
     for(int i = 0; i < numMotors; i++) {
         pinMode(enPins[i], OUTPUT);
-        digitalWrite(enPins[i], LOW);
+        digitalWrite(enPins[i], LOW); // Enable drivers
         
-        steppers[i].setMaxSpeed(100);
-        steppers[i].setAcceleration(100);
-        
-        // Move all 8 motors for the dual airfoil platform
-        steppers[i].moveTo(TARGET_STEPS); 
+        steppers[i].setMaxSpeed(1000);   // Set a usable speed
+        steppers[i].setAcceleration(500); // Set a usable acceleration
     }
 
+    // SETUP ENCODER
     pinMode(EAplus, INPUT_PULLUP);
     pinMode(EBplus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EAplus), handleEncoder, CHANGE);
 
     delay(3000);
-    Serial.print("Target set to: ");
-    Serial.print(TARGET_DEGREES);
-    Serial.println(" degrees."); 
-    Serial.println("Startup delay complete. Program starting...");
+    Serial.println("--- Dual Airfoil Controller Ready ---");
+    Serial.println("Enter target angle and press Enter:");
 }
 
 void loop() {
-    static bool motionComplete = false;
+    // 1. CHECK FOR USER INPUT
+    if (Serial.available() > 0) {
+        // Read the input as a float
+        targetDegrees = Serial.parseFloat();
+        
+        // Calculate steps required
+        long targetSteps = (targetDegrees / 360.0) * STEPS_PER_REV;
 
-    // Run all motors simultaneously
+        Serial.print(">> Command Received: Moving to ");
+        Serial.print(targetDegrees);
+        Serial.println(" degrees.");
+
+        // Update all motors with the new target
+        for(int i = 0; i < numMotors; i++) {
+            steppers[i].moveTo(targetSteps);
+        }
+
+        // Clear the serial buffer of any leftover newline characters
+        while(Serial.available() > 0) { Serial.read(); }
+    }
+
+    // 2. CONSTANTLY UPDATE MOTORS
+    // This needs to run every loop iteration to step the motors
+    bool moving = false;
     for(int i = 0; i < numMotors; i++) {
         steppers[i].run();
+        if (steppers[i].distanceToGo() != 0) {
+            moving = true;
+        }
     }
 
-    // Check completion once
-    if (!motionComplete && steppers[0].distanceToGo() == 0) {
-        Serial.println("--- Target Reached: All motors stopped ---");
-        motionComplete = true;
+    // 3. REPORT COMPLETION ONCE
+    static bool wasMoving = false;
+    if (!moving && wasMoving) {
+        Serial.println("--- Motion Complete. Ready for next angle. ---");
     }
+    wasMoving = moving;
 
-    // ENCODER REPORTING
+    // 4. ENCODER REPORTING
     if (encoderTicks != lastReportedTicks) {
-        // Calculate angle based on the 2000 tick feedback resolution
-        float angle = (static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0;
-        Serial.print("Encoder Angle: ");
-        Serial.print(angle, 4); 
+        float angle = abs((static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0);
+        Serial.print("Current Encoder Angle: ");
+        Serial.print(angle, 2); 
         Serial.println("°");
         lastReportedTicks = encoderTicks;
     }
