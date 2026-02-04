@@ -40,13 +40,16 @@
 // --- ENCODER DEFINITIONS ---
 #define EAplus      PG6
 #define EBplus      PG9
+
+// Your spec is 1000PPR. Using one interrupt with CHANGE gives 2000 ticks per rev.
 const float PULSES_PER_REV = 2000.0; 
 
 volatile long encoderTicks = 0;
 long lastReportedTicks = 0;
 
 // --- MOTION SETTINGS ---
-const float TARGET_DEGREES = 18.0;  // Edit this value to change stop point
+// 18.0 is a common multiple for 0.225 (motor) and 0.18 (encoder)
+const float TARGET_DEGREES = 18.0;  
 const int MICROSTEP_SETTING = 8;     
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
 const long TARGET_STEPS = (TARGET_DEGREES / 360.0) * STEPS_PER_REV;
@@ -66,6 +69,7 @@ AccelStepper steppers[] = {
 const int numMotors = 8;
 int enPins[] = {ENABLE_PIN0, ENABLE_PIN1, ENABLE_PIN2, ENABLE_PIN3, ENABLE_PIN4, ENABLE_PIN5, ENABLE_PIN6, ENABLE_PIN7};
 
+// ISR updated to read both pins for direction sensing
 void handleEncoder() {
     int aState = digitalRead(EAplus);
     int bState = digitalRead(EBplus);
@@ -87,7 +91,7 @@ void setup() {
         steppers[i].setMaxSpeed(100);
         steppers[i].setAcceleration(100);
         
-        // Set the destination once at startup
+        // Move all 8 motors for the dual airfoil platform
         steppers[i].moveTo(TARGET_STEPS); 
     }
 
@@ -95,40 +99,33 @@ void setup() {
     pinMode(EBplus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EAplus), handleEncoder, CHANGE);
 
+    delay(3000);
     Serial.print("Target set to: ");
     Serial.print(TARGET_DEGREES);
-    Serial.println(" degrees.");
-
-    delay(3000); 
+    Serial.println(" degrees."); 
     Serial.println("Startup delay complete. Program starting...");
 }
 
 void loop() {
-    // Keep a flag to track if we've finished the move
     static bool motionComplete = false;
 
-    // RUN MOTORS
+    // Run all motors simultaneously
     for(int i = 0; i < numMotors; i++) {
         steppers[i].run();
     }
 
-    // Check if motor 0 has reached the target
+    // Check completion once
     if (!motionComplete && steppers[0].distanceToGo() == 0) {
         Serial.println("--- Target Reached: All motors stopped ---");
         motionComplete = true;
-        
-        // Optional: Comment the loop below if you want to keep motors enabled (maintain holding torque)
-        // for(int i = 0; i < numMotors; i++) {
-        //     digitalWrite(enPins[i], HIGH);
-        // }
-
     }
 
     // ENCODER REPORTING
     if (encoderTicks != lastReportedTicks) {
-        float angle = abs((static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0);
+        // Calculate angle based on the 2000 tick feedback resolution
+        float angle = (static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0;
         Serial.print("Encoder Angle: ");
-        Serial.print(angle);
+        Serial.print(angle, 4); 
         Serial.println("°");
         lastReportedTicks = encoderTicks;
     }
