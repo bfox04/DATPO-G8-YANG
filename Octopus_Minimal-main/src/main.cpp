@@ -85,8 +85,8 @@ void setup() {
         pinMode(enPins[i], OUTPUT);
         digitalWrite(enPins[i], LOW); // Enable drivers
         
-        steppers[i].setMaxSpeed(10000);   // Set a usable speed
-        steppers[i].setAcceleration(5000); // Set a usable acceleration
+        steppers[i].setMaxSpeed(5000);   // Set a usable speed
+        steppers[i].setAcceleration(1000); // Set a usable acceleration
     }
 
     // SETUP ENCODER
