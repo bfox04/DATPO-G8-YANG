@@ -108,7 +108,7 @@ void loop() {
         // Calculate steps required
         long targetSteps = (targetDegrees / 360.0) * STEPS_PER_REV;
 
-        Serial.print(">> Command Received: Moving to ");
+        Serial.print(">> Yes master. Command Received: Moving to ");
         Serial.print(targetDegrees);
         Serial.println(" degrees.");
 
