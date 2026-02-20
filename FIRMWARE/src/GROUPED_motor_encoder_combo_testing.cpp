@@ -47,7 +47,6 @@ volatile long encoderTicks = 0;
 long lastReportedTicks = 0;
 
 // --- MOTION SETTINGS ---
-float targetDegrees = 0;            // Variable to hold user input
 const int MICROSTEP_SETTING = 8;     
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
 
@@ -83,10 +82,10 @@ void setup() {
     // SETUP MOTORS
     for(int i = 0; i < numMotors; i++) {
         pinMode(enPins[i], OUTPUT);
-        digitalWrite(enPins[i], LOW); // Enable drivers
+        digitalWrite(enPins[i], LOW); 
         
-        steppers[i].setMaxSpeed(5000);   // Set a usable speed
-        steppers[i].setAcceleration(1000); // Set a usable acceleration
+        steppers[i].setMaxSpeed(5000);   
+        steppers[i].setAcceleration(1000); 
     }
 
     // SETUP ENCODER
@@ -95,52 +94,77 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(EAplus), handleEncoder, CHANGE);
 
     delay(3000);
-    Serial.println("--- Dual Airfoil Controller Ready ---");
-    Serial.println("Enter target angle and press Enter:");
+    Serial.println("--- Airfoil Group Controller Ready ---");
+    Serial.println("Commands: X[deg], Y[deg], ZA[deg], ZB[deg], or HOME");
 }
 
 void loop() {
-    // 1. CHECK FOR USER INPUT
     if (Serial.available() > 0) {
-        // Read the input as a float
-        targetDegrees = Serial.parseFloat();
-        
-        // Calculate steps required
-        long targetSteps = (targetDegrees / 360.0) * STEPS_PER_REV;
+        String input = Serial.readStringUntil('\n');
+        input.trim();
+        input.toUpperCase();
 
-        Serial.print(">> Yes master. Command Received: Moving to ");
-        Serial.print(targetDegrees);
-        Serial.println(" degrees.");
+        int startMotor = -1;
+        int endMotor = -1;
+        float targetDegrees = 0;
+        bool valid = false;
 
-        // Update all motors with the new target
-        for(int i = 0; i < numMotors; i++) {
-            steppers[i].moveTo(targetSteps);
+        // HOME Command Logic
+        if (input == "HOME") {
+            Serial.println(">> Homing all motors to 0 degrees.");
+            for(int i = 0; i < numMotors; i++) {
+                steppers[i].moveTo(0);
+            }
+        } 
+        // Group Logic
+        else if (input.startsWith("ZA")) {
+            startMotor = 6; endMotor = 6;
+            targetDegrees = input.substring(2).toFloat();
+            valid = true;
+        } else if (input.startsWith("ZB")) {
+            startMotor = 7; endMotor = 7;
+            targetDegrees = input.substring(2).toFloat();
+            valid = true;
+        } else if (input.startsWith("X")) {
+            startMotor = 0; endMotor = 1;
+            targetDegrees = input.substring(1).toFloat();
+            valid = true;
+        } else if (input.startsWith("Y")) {
+            startMotor = 2; endMotor = 5;
+            targetDegrees = input.substring(1).toFloat();
+            valid = true;
         }
 
-        // Clear the serial buffer of any leftover newline characters
-        while(Serial.available() > 0) { Serial.read(); }
+        if (valid) {
+            long targetSteps = (targetDegrees / 360.0) * STEPS_PER_REV;
+            Serial.print(">> Moving Group to ");
+            Serial.print(targetDegrees);
+            Serial.println(" degrees.");
+
+            for(int i = startMotor; i <= endMotor; i++) {
+                steppers[i].moveTo(targetSteps);
+            }
+        } else if (input != "HOME") {
+            Serial.println("!! Invalid Command. Use X, Y, ZA, ZB, or HOME.");
+        }
     }
 
-    // 2. CONSTANTLY UPDATE MOTORS
-    // This needs to run every loop iteration to step the motors
+    // Update Motors
     bool moving = false;
     for(int i = 0; i < numMotors; i++) {
         steppers[i].run();
-        if (steppers[i].distanceToGo() != 0) {
-            moving = true;
-        }
+        if (steppers[i].distanceToGo() != 0) moving = true;
     }
 
-    // 3. REPORT COMPLETION ONCE
     static bool wasMoving = false;
     if (!moving && wasMoving) {
-        Serial.println("--- Motion Complete. Ready for next angle. ---");
+        Serial.println("--- Motion Complete. ---");
     }
     wasMoving = moving;
 
-    // 4. ENCODER REPORTING
+    // Encoder Reporting
     if (encoderTicks != lastReportedTicks) {
-        float angle = abs((static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0);
+        float angle = (static_cast<float>(encoderTicks) / PULSES_PER_REV) * 360.0;
         Serial.print("Current Encoder Angle: ");
         Serial.print(angle, 2); 
         Serial.println("°");

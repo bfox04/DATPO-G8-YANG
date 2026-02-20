@@ -10,6 +10,9 @@
             "includePath": [
                 "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/include",
                 "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/src",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/.pio/libdeps/nucleo_f446ze/U8g2/src",
+                "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Wire/src",
+                "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SPI/src",
                 "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/.pio/libdeps/nucleo_f446ze/AccelStepper/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
@@ -39,14 +42,12 @@
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Keyboard/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Mouse/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/RGB_LED_TLC59731/src",
-                "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SPI/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Servo/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SoftwareSerial/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SubGhz/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/USBDevice/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/VirtIO/src",
-                "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Wire/src",
                 ""
             ],
             "browse": {
@@ -54,6 +55,9 @@
                 "path": [
                     "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/include",
                     "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/src",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/.pio/libdeps/nucleo_f446ze/U8g2/src",
+                    "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Wire/src",
+                    "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SPI/src",
                     "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/.pio/libdeps/nucleo_f446ze/AccelStepper/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
@@ -83,14 +87,12 @@
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Keyboard/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Mouse/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/RGB_LED_TLC59731/src",
-                    "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SPI/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Servo/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SoftwareSerial/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SubGhz/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/USBDevice/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/VirtIO/src",
-                    "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/Wire/src",
                     ""
                 ]
             },
