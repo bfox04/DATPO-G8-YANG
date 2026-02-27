@@ -124,10 +124,12 @@ void loop() {
         } else if (input.startsWith("ZA")) {
             startMotor = 6; endMotor = 6;
             targetDegrees = input.substring(2).toFloat();
+            targetDegrees*=5.197539843600339;
             valid = true;
         } else if (input.startsWith("ZB")) {
             startMotor = 7; endMotor = 7;
             targetDegrees = input.substring(2).toFloat();
+            targetDegrees*=5.197539843600339;
             valid = true;
         }
 
