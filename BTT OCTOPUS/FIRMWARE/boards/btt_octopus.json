@@ -1,0 +1,40 @@
+{
+  "build": {
+    "core": "stm32",
+    "cpu": "cortex-m4",
+    "extra_flags": "-DSTM32F446xx -DSTM32F4xx -DVECT_TAB_OFFSET=0x8000",
+    "f_cpu": "180000000L",
+    "mcu": "stm32f446zet6",
+    "product_line": "STM32F446xx",
+    "variant": "STM32F4xx/F446Z(C-E)(H-J-T)",
+    "flash_offset": "0x8000"
+  },
+  "debug": {
+    "jlink_device": "STM32F446ZE",
+    "openocd_target": "stm32f4x",
+    "svd_path": "STM32F446x.svd"
+  },
+  "frameworks": [
+    "arduino",
+    "cmsis",
+    "stm32cube",
+    "libopencm3"
+  ],
+  "name": "BTT Octopus V1.1 (STM32F446ZET6)",
+  "upload": {
+    "maximum_ram_size": 131072,
+    "maximum_size": 491520,
+    "protocol": "stlink",
+    "protocols": [
+      "blackmagic",
+      "cmsis-dap",
+      "dfu",
+      "jlink",
+      "serial",
+      "stlink"
+    ],
+    "offset_address": "0x08008000"
+  },
+  "url": "https://github.com/bigtreetech/BIGTREETECH-OCTOPUS-V1.0",
+  "vendor": "BIGTREETECH"
+}
