@@ -1,0 +1,5 @@
+
+- new style encoder
+- encoders checking position (safety alarm)
+- safe, repeatable zeroing
+- lcd controller?

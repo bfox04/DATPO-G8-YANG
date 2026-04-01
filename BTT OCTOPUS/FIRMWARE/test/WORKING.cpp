@@ -36,6 +36,7 @@
 
 // --- FAN DEFINITIONS ---
 #define FAN0_PIN    PA8  
+bool fanOn = true;  // Fan starts ON in setup()
 
 // --- ENCODER DEFINITIONS ---
 #define EAplus      PG6
@@ -147,6 +148,15 @@ void processCommand(String input, InputSource source) {
         }
         sendResponse(">> EMERGENCY STOP", source);
         return;
+    } else if (input == "FAN") {
+        fanOn = !fanOn;
+        digitalWrite(FAN0_PIN, fanOn ? HIGH : LOW);
+        sendResponse(fanOn ? ">> Fan ON" : ">> Fan OFF", source);
+        return;
+    } else if (input == "OPTIONS") {
+        sendResponse("--- Airfoil Group Controller ---", source);
+        sendResponse("Commands: X[mm], Y[mm], ZA[deg], ZB[deg], HOME, STATUS, OPTIONS, FAN, STOP", source);
+        return;
     }
 
     if (valid) {
@@ -184,7 +194,7 @@ void setup() {
     // Startup message to both interfaces
     sendBoth("--- Airfoil Group Controller Ready ---");
     sendBoth("USB + Bluetooth (HC-05) active");
-    sendBoth("Commands: X[mm], Y[mm], ZA[deg], ZB[deg], HOME, STATUS, STOP");
+    sendBoth("Commands: X[mm], Y[mm], ZA[deg], ZB[deg], HOME, STATUS, STOP, FAN, OPTIONS");
 }
 
 void loop() {
