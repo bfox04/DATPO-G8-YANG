@@ -99,7 +99,7 @@
   .axis-send{padding:9px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
   .axis-send:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-glow)}
   
-  .action-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+  .action-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px}
   .action-btn{padding:14px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
   .action-btn:hover{border-color:var(--border-hover);color:var(--text);transform:translateY(-1px)}
   .action-btn.home{border-color:rgba(56,189,248,0.15);color:var(--sky);background:var(--sky-glow)}.action-btn.home:hover{border-color:var(--sky);box-shadow:0 0 15px rgba(56,189,248,0.1)}
@@ -107,6 +107,38 @@
   .action-btn.status-btn{border-color:rgba(167,139,250,0.15);color:var(--violet);background:var(--violet-glow)}.action-btn.status-btn:hover{border-color:var(--violet);box-shadow:0 0 15px rgba(167,139,250,0.1)}
   .action-btn.stop{grid-column:1/-1;border-color:rgba(251,113,133,0.2);color:var(--rose);background:var(--rose-glow);font-size:15px;font-weight:700;padding:18px;letter-spacing:1px;text-transform:uppercase}
   .action-btn.stop:hover{background:var(--rose);color:#fff;border-color:var(--rose);box-shadow:0 0 30px rgba(251,113,133,0.25);transform:translateY(-1px)}
+
+  /* --- ALARM BANNER --- */
+  .alarm-banner{display:none;padding:14px 20px;background:rgba(251,113,133,0.1);border:1px solid rgba(251,113,133,0.3);border-radius:var(--radius);align-items:center;justify-content:space-between;gap:12px;animation:alarmPulse 1.5s ease-in-out infinite}
+  .alarm-banner.active{display:flex}
+  .alarm-info{display:flex;align-items:center;gap:10px;flex:1}
+  .alarm-icon{font-size:20px;animation:alarmBlink 0.8s step-end infinite}
+  .alarm-text{font-family:'Fira Code',monospace;font-size:12px;color:var(--rose);font-weight:600}
+  .alarm-detail{font-family:'Fira Code',monospace;font-size:11px;color:rgba(251,113,133,0.7);margin-top:2px}
+  .alarm-btn{padding:10px 22px;border-radius:var(--radius-sm);border:1px solid var(--amber);background:var(--amber-glow);color:var(--amber);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+  .alarm-btn:hover{background:var(--amber-strong);box-shadow:0 0 20px rgba(251,191,36,0.15)}
+  @keyframes alarmPulse{0%,100%{border-color:rgba(251,113,133,0.3)}50%{border-color:rgba(251,113,133,0.5);box-shadow:0 0 20px rgba(251,113,133,0.08)}}
+  @keyframes alarmBlink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+  /* --- ZERO MODE CARD --- */
+  .zero-card{display:none;background:var(--surface-glass);backdrop-filter:blur(16px);border:1px solid rgba(251,191,36,0.2);border-radius:var(--radius);padding:20px;animation:fadeUp .5s ease both}
+  .zero-card.active{display:block}
+  .zero-card .card-title.amber::before{background:linear-gradient(135deg,#fbbf24,#f59e0b)}
+  .zero-section{margin-bottom:14px}
+  .zero-section-label{font-family:'Fira Code',monospace;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+  .jog-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+  .jog-label{font-family:'Fira Code',monospace;font-size:12px;font-weight:600;width:36px;text-align:center;color:var(--text-dim)}
+  .jog-btn{padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-family:'Fira Code',monospace;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;min-width:38px;text-align:center}
+  .jog-btn:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-glow)}
+  .jog-btn:active{transform:scale(0.95)}
+  .jog-info{font-family:'Fira Code',monospace;font-size:10px;color:var(--text-muted);margin-left:8px}
+  .zero-actions{display:flex;gap:10px;margin-bottom:16px}
+  .zero-btn-set{flex:1;padding:12px;border-radius:var(--radius-sm);border:1px solid var(--teal);background:var(--teal-glow);color:var(--teal);font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:0.5px}
+  .zero-btn-set:hover{background:var(--teal-strong);box-shadow:0 0 15px rgba(45,212,191,0.15)}
+  .zero-btn-exit{flex:1;padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:0.5px}
+  .zero-btn-exit:hover{border-color:var(--text-dim);color:var(--text)}
+  .action-btn.zero-mode{border-color:rgba(251,191,36,0.2);color:var(--amber);background:var(--amber-glow)}
+  .action-btn.zero-mode:hover{border-color:var(--amber);box-shadow:0 0 15px rgba(251,191,36,0.1)}
   
   .raw-row{display:flex;gap:10px}
   .raw-input{flex:1;padding:11px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Fira Code',monospace;font-size:13px;outline:none;transition:all .2s}
@@ -152,6 +184,16 @@
 </div>
 <div class="main">
   <div class="controls">
+    <div class="alarm-banner" id="alarmBanner">
+      <div class="alarm-info">
+        <span class="alarm-icon">⚠</span>
+        <div>
+          <div class="alarm-text">SYNC ALARM — X Encoders Out of Sync</div>
+          <div class="alarm-detail" id="alarmDetail">Motors paused. Clear alarm to resume.</div>
+        </div>
+      </div>
+      <button class="alarm-btn" onclick="clearAlarm()">Clear Alarm</button>
+    </div>
     <div class="card">
       <div class="card-title teal">Axis Control</div>
       <div class="axis-group">
@@ -168,7 +210,33 @@
         <button class="action-btn status-btn" onclick="sendCmd('STATUS')"><span class="icon">◉</span> Status</button>
         <button class="action-btn status-btn" onclick="sendCmd('OPTIONS')"><span class="icon">☰</span> Options</button>
         <button class="action-btn fan" onclick="sendCmd('FAN')"><span class="icon">⟳</span> Fan</button>
+        <button class="action-btn zero-mode" onclick="sendCmd('ZERO')"><span class="icon">◎</span> Zero Mode</button>
         <button class="action-btn stop" onclick="sendCmd('STOP')">⚠ Emergency Stop</button>
+      </div>
+    </div>
+    <div class="zero-card" id="zeroCard">
+      <div class="card-title amber">Zeroing Mode — Jog 0.25mm / 0.25°</div>
+      <div class="zero-actions">
+        <button class="zero-btn-set" onclick="sendCmd('SET')">◎ Set Zero Point</button>
+        <button class="zero-btn-exit" onclick="sendCmd('EXIT')">Exit Zeroing</button>
+      </div>
+      <div class="zero-section">
+        <div class="zero-section-label">Individual Motors</div>
+        <div class="jog-row"><span class="jog-label">M0</span><button class="jog-btn" onclick="sendCmd('M0-')">−</button><button class="jog-btn" onclick="sendCmd('M0+')">+</button><span class="jog-info">X left</span></div>
+        <div class="jog-row"><span class="jog-label">M1</span><button class="jog-btn" onclick="sendCmd('M1-')">−</button><button class="jog-btn" onclick="sendCmd('M1+')">+</button><span class="jog-info">X right</span></div>
+        <div class="jog-row"><span class="jog-label">M2</span><button class="jog-btn" onclick="sendCmd('M2-')">−</button><button class="jog-btn" onclick="sendCmd('M2+')">+</button><span class="jog-info">Y</span></div>
+        <div class="jog-row"><span class="jog-label">M3</span><button class="jog-btn" onclick="sendCmd('M3-')">−</button><button class="jog-btn" onclick="sendCmd('M3+')">+</button><span class="jog-info">Y</span></div>
+        <div class="jog-row"><span class="jog-label">M4</span><button class="jog-btn" onclick="sendCmd('M4-')">−</button><button class="jog-btn" onclick="sendCmd('M4+')">+</button><span class="jog-info">Y</span></div>
+        <div class="jog-row"><span class="jog-label">M5</span><button class="jog-btn" onclick="sendCmd('M5-')">−</button><button class="jog-btn" onclick="sendCmd('M5+')">+</button><span class="jog-info">Y</span></div>
+        <div class="jog-row"><span class="jog-label">M6</span><button class="jog-btn" onclick="sendCmd('M6-')">−</button><button class="jog-btn" onclick="sendCmd('M6+')">+</button><span class="jog-info">ZA</span></div>
+        <div class="jog-row"><span class="jog-label">M7</span><button class="jog-btn" onclick="sendCmd('M7-')">−</button><button class="jog-btn" onclick="sendCmd('M7+')">+</button><span class="jog-info">ZB</span></div>
+      </div>
+      <div class="zero-section">
+        <div class="zero-section-label">Axis Groups</div>
+        <div class="jog-row"><span class="jog-label">X</span><button class="jog-btn" onclick="sendCmd('X-')">−</button><button class="jog-btn" onclick="sendCmd('X+')">+</button><span class="jog-info">0.25mm</span></div>
+        <div class="jog-row"><span class="jog-label">Y</span><button class="jog-btn" onclick="sendCmd('Y-')">−</button><button class="jog-btn" onclick="sendCmd('Y+')">+</button><span class="jog-info">0.25mm</span></div>
+        <div class="jog-row"><span class="jog-label">ZA</span><button class="jog-btn" onclick="sendCmd('ZA-')">−</button><button class="jog-btn" onclick="sendCmd('ZA+')">+</button><span class="jog-info">~0.25°</span></div>
+        <div class="jog-row"><span class="jog-label">ZB</span><button class="jog-btn" onclick="sendCmd('ZB-')">−</button><button class="jog-btn" onclick="sendCmd('ZB+')">+</button><span class="jog-info">~0.25°</span></div>
       </div>
     </div>
     <div class="card">
@@ -185,9 +253,11 @@
   </div>
 </div>
 <script>
-let port=null,reader=null,writer=null,readableStreamClosed=null,writableStreamClosed=null,isConnected=false;
-const consoleEl=document.getElementById('consoleOutput'),statusDot=document.getElementById('statusDot'),statusText=document.getElementById('statusText'),statusPill=document.getElementById('statusPill'),connectBtn=document.getElementById('connectBtn');
-function log(t,c='rx'){const l=document.createElement('div');l.className='console-line '+c;const ts=new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});const p=c==='tx'?'›':c==='err'?'✗':c==='sys'?'●':'‹';l.innerHTML=`<span class="time">${ts}</span><span class="prefix">${p}</span> <span class="content">${escapeHtml(t)}</span>`;consoleEl.appendChild(l);consoleEl.scrollTop=consoleEl.scrollHeight}
+let port=null,reader=null,writer=null,readableStreamClosed=null,writableStreamClosed=null,isConnected=false,zeroingActive=false,alarmActive=false;
+const consoleEl=document.getElementById('consoleOutput'),statusDot=document.getElementById('statusDot'),statusText=document.getElementById('statusText'),statusPill=document.getElementById('statusPill'),connectBtn=document.getElementById('connectBtn'),zeroCard=document.getElementById('zeroCard'),alarmBanner=document.getElementById('alarmBanner'),alarmDetail=document.getElementById('alarmDetail');
+function log(t,c='rx'){const l=document.createElement('div');l.className='console-line '+c;const ts=new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});const p=c==='tx'?'›':c==='err'?'✗':c==='sys'?'●':'‹';l.innerHTML=`<span class="time">${ts}</span><span class="prefix">${p}</span> <span class="content">${escapeHtml(t)}</span>`;consoleEl.appendChild(l);consoleEl.scrollTop=consoleEl.scrollHeight;checkMode(t);}
+function checkMode(t){if(t.includes('ZEROING MODE')){zeroingActive=true;zeroCard.classList.add('active');}if(t.includes('Exited zeroing mode')||t.includes('Exited zeroing')||t.includes('STOPPED')){zeroingActive=false;zeroCard.classList.remove('active');}if(t.includes('Zero point SET')){zeroingActive=true;}if(t.includes('SYNC ALARM')){alarmActive=true;alarmBanner.classList.add('active');const m=t.match(/E0=([\d.-]+)mm E1=([\d.-]+)mm \(diff=([\d.-]+)mm\)/);if(m)alarmDetail.textContent='E0='+m[1]+'mm  E1='+m[2]+'mm  diff='+m[3]+'mm';else alarmDetail.textContent='Motors paused. Clear alarm to resume.';}if(t.includes('Alarm cleared')||t.includes('STOPPED')||t.includes('ZEROING MODE')){alarmActive=false;alarmBanner.classList.remove('active');}}
+function clearAlarm(){sendString('RESUME');}
 function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function clearConsole(){consoleEl.innerHTML='';log('Console cleared','sys')}
 function setConnected(c,l){isConnected=c;statusDot.className='status-dot'+(c?' connected':'');statusPill.className='status-pill'+(c?' connected':'');statusText.textContent=l||(c?'Connected':'Disconnected');connectBtn.textContent=c?'Disconnect':'Connect';connectBtn.className='connect-btn'+(c?' connected':'')}

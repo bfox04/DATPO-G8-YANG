@@ -8,9 +8,9 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/include",
-                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/src",
-                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/.pio/libdeps/btt_octopus_f446/AccelStepper/src",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/include",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/src",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/.pio/libdeps/btt_octopus_f446/AccelStepper/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/inc",
@@ -32,7 +32,7 @@
                 "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/Include",
                 "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/PrivateInclude",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino",
-                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
+                "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/CMSIS_DSP/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/EEPROM/src",
                 "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/IWatchdog/src",
@@ -52,9 +52,9 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/include",
-                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/src",
-                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/.pio/libdeps/btt_octopus_f446/AccelStepper/src",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/include",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/src",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/.pio/libdeps/btt_octopus_f446/AccelStepper/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/avr",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino/stm32",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/SrcWrapper/inc",
@@ -76,7 +76,7 @@
                     "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/Include",
                     "C:/Users/foxbr/.platformio/packages/framework-cmsis/CMSIS/DSP/PrivateInclude",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/cores/arduino",
-                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/BTT OCTOPUS/FIRMWARE/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
+                    "C:/Users/foxbr/Documents/GitHub/DATPO-G8-YANG/FIRMWARE/custom_variants/STM32F4xx/F446Z(C-E)(H-J-T)",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/CMSIS_DSP/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/EEPROM/src",
                     "C:/Users/foxbr/.platformio/packages/framework-arduinoststm32/libraries/IWatchdog/src",
