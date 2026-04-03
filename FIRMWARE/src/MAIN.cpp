@@ -2,51 +2,64 @@
 #include <AccelStepper.h>
 
 // --- MOTOR DEFINITIONS ---
+
+//m0
 #define ENABLE_PIN0 PF14
 #define STEP_PIN0   PF13
 #define DIR_PIN0    PF12
 
+//m1
 #define ENABLE_PIN1 PF15
 #define STEP_PIN1   PG0
 #define DIR_PIN1    PG1
 
+//m2
 #define ENABLE_PIN2 PG5
 #define STEP_PIN2   PF11
 #define DIR_PIN2    PG3
 
+//m3
 #define ENABLE_PIN3 PA0
 #define STEP_PIN3   PG4
 #define DIR_PIN3    PC1
 
+//m4
 #define ENABLE_PIN4 PG2
 #define STEP_PIN4   PF9
 #define DIR_PIN4    PF10
 
+//m5
 #define ENABLE_PIN5 PF1
 #define STEP_PIN5   PC13
 #define DIR_PIN5    PF0
 
+//m6
 #define ENABLE_PIN6 PD4
 #define STEP_PIN6   PE2
 #define DIR_PIN6    PE3
 
+//m7
 #define ENABLE_PIN7 PE0
 #define STEP_PIN7   PE6
 #define DIR_PIN7    PA14
+
+// --- ENCODER DEFINITIONS ---
+
+//E0
+#define EB0plus     PG6
+#define EA0plus     PG9
+
+//E1
+#define EB1plus     PG10
+#define EA1plus     PG11
 
 // --- FAN DEFINITIONS ---
 #define FAN0_PIN    PA8  
 bool fanOn = true;
 
-// --- ENCODER DEFINITIONS ---
-#define EA1plus     PG6
-#define EB1plus     PG9
-#define EA2plus     PG10
-#define EB2plus     PG11
-
 const float PULSES_PER_REV = 2000.0; 
+volatile long encoder0Ticks = 0;
 volatile long encoder1Ticks = 0;
-volatile long encoder2Ticks = 0;
 
 // --- MOTION SETTINGS ---
 const int MICROSTEP_SETTING = 8;     
@@ -73,12 +86,11 @@ enum InputSource { SOURCE_NONE, SOURCE_USB, SOURCE_BT };
 InputSource lastSource = SOURCE_NONE;
 
 // --- ISRs ---
+void handleEncoder0() {
+    if (digitalRead(EA0plus) == digitalRead(EB0plus)) encoder0Ticks++; else encoder0Ticks--;
+}
 void handleEncoder1() {
     if (digitalRead(EA1plus) == digitalRead(EB1plus)) encoder1Ticks++; else encoder1Ticks--;
-}
-
-void handleEncoder2() {
-    if (digitalRead(EA2plus) == digitalRead(EB2plus)) encoder2Ticks++; else encoder2Ticks--;
 }
 
 void sendResponse(const String& msg, InputSource source) {
@@ -102,12 +114,23 @@ void processCommand(String input, InputSource source) {
         }
         sendResponse(status, source);
         
+        float angle0 = (static_cast<float>(encoder0Ticks) / PULSES_PER_REV) * 360.0;
         float angle1 = (static_cast<float>(encoder1Ticks) / PULSES_PER_REV) * 360.0;
-        float angle2 = (static_cast<float>(encoder2Ticks) / PULSES_PER_REV) * 360.0;
-        sendResponse("Encoders: E1=" + String(angle1, 2) + " E2=" + String(angle2, 2), source);
+
+        float disp0 = (angle0 / 360.0) * 5.0;
+        float disp1 = (angle1 / 360.0) * 5.0;
+
+        sendResponse("Encoders: E0=" + String(angle0, 2) + "deg (" + String(disp0, 2) + "mm) E1=" + String(angle1, 2) + "deg (" + String(disp1, 2) + "mm)", source);
+
         return;
     } 
     
+    if (input == "OPTIONS") {
+        sendResponse("--- Airfoil Group Controller ---", source);
+        sendResponse("Commands: X[mm], Y[mm], ZA[deg], ZB[deg], HOME, STATUS, OPTIONS, FAN, STOP", source);
+        return;
+    }
+
     if (input == "HOME") {
         sendResponse(">> Homing...", source);
         for(int i = 0; i < numMotors; i++) steppers[i].moveTo(0);
@@ -146,14 +169,29 @@ void processCommand(String input, InputSource source) {
 
     if (valid) {
         long targetSteps = (targetDegrees / 360.0) * STEPS_PER_REV;
-        sendResponse(">> Target: " + String(targetSteps), source);
-        for(int i = startMotor; i <= endMotor; i++) steppers[i].moveTo(targetSteps);
+        sendResponse(">> Target Steps: " + String(targetSteps),source);
+        for(int i = startMotor; i <= endMotor; i++) {
+            if(i==99){
+                steppers[i].moveTo(-targetSteps);
+            } else {
+                steppers[i].moveTo(targetSteps);
+            }
+        }
+    } else if (input.length() > 0) {
+        sendResponse("!!! Invalid Command. See OPTIONS for valid commands.", source);
     }
 }
 
 void setup() {
     Serial.begin(115200);
-    Serial1.begin(115200); // Set back to 115200 for HC-05
+    Serial1.begin(115200); 
+
+    sendResponse("Startup in", SOURCE_NONE);
+    // Countdown before starting
+    for (int i = 5; i >= 0; i--) {
+        sendResponse(String(i), SOURCE_NONE);
+        delay(1000);
+    }
 
     pinMode(FAN0_PIN, OUTPUT);
     digitalWrite(FAN0_PIN, HIGH); 
@@ -161,20 +199,21 @@ void setup() {
     for(int i = 0; i < numMotors; i++) {
         pinMode(enPins[i], OUTPUT);
         digitalWrite(enPins[i], LOW); 
+
         steppers[i].setMaxSpeed(5000);   
-        steppers[i].setAcceleration(1000); 
+        steppers[i].setAcceleration(750); 
     }
+
+    pinMode(EA0plus, INPUT_PULLUP);
+    pinMode(EB0plus, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(EA0plus), handleEncoder0, CHANGE);
 
     pinMode(EA1plus, INPUT_PULLUP);
     pinMode(EB1plus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EA1plus), handleEncoder1, CHANGE);
 
-    pinMode(EA2plus, INPUT_PULLUP);
-    pinMode(EB2plus, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(EA2plus), handleEncoder2, CHANGE);
-
-    delay(2000);
-    sendResponse("--- System Ready (Dual Encoders) ---", SOURCE_NONE);
+    delay(500);
+    sendResponse("--- System Ready (Sync Test) ---", SOURCE_NONE);
 }
 
 void loop() {
