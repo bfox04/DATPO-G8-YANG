@@ -45,13 +45,21 @@
 
 // --- ENCODER DEFINITIONS ---
 
-//E0
+//E0 — X left (M0)
 #define EB0plus     PG6
 #define EA0plus     PG9
 
-//E1
+//E1 — X right (M1)
 #define EB1plus     PG10
 #define EA1plus     PG11
+
+//E2 — Y rear left (M2)
+#define EB2plus     PG12
+#define EA2plus     PG13
+
+//E3 — Y front right (M5)
+#define EB3plus     PG14
+#define EA3plus     PG15
 
 // --- FAN DEFINITIONS ---
 #define FAN0_PIN    PA8  
@@ -60,16 +68,23 @@ bool fanOn = true;
 const float PULSES_PER_REV = 2000.0; 
 volatile long encoder0Ticks = 0;
 volatile long encoder1Ticks = 0;
+volatile long encoder2Ticks = 0;
+volatile long encoder3Ticks = 0;
 
 // --- X ENCODER SYNC ALARM ---
 const float X_SYNC_THRESHOLD_MM = 5.0;
+// --- Y ENCODER SYNC ALARM ---
+const float Y_SYNC_THRESHOLD_MM = 5.0;
 bool syncAlarm = false;
+String alarmSource = "";  // "X" or "Y" — which axis triggered
 
 // --- MOTION SETTINGS ---
 const int MICROSTEP_SETTING = 8;     
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
 const float X_PITCH = 5.0; 
 const float Y_PITCH = 2.0; 
+const float ZA_GEAR_RATIO = 5.197539843600339;
+const float ZB_GEAR_RATIO = 5.197539843600339;
 
 // --- ZEROING MODE ---
 bool zeroingMode = false;
@@ -104,10 +119,76 @@ void handleEncoder0() {
 void handleEncoder1() {
     if (digitalRead(EA1plus) == digitalRead(EB1plus)) encoder1Ticks++; else encoder1Ticks--;
 }
+void handleEncoder2() {
+    if (digitalRead(EA2plus) == digitalRead(EB2plus)) encoder2Ticks++; else encoder2Ticks--;
+}
+void handleEncoder3() {
+    if (digitalRead(EA3plus) == digitalRead(EB3plus)) encoder3Ticks++; else encoder3Ticks--;
+}
 
 void sendResponse(const String& msg, InputSource source) {
     if (source == SOURCE_USB || source == SOURCE_NONE) Serial.println(msg);
     if (source == SOURCE_BT || source == SOURCE_NONE) Serial1.println(msg);
+}
+
+// --- HELPER: encoder ticks to mm ---
+float encoderMM_X(volatile long &ticks) {
+    return (static_cast<float>(ticks) / PULSES_PER_REV) * X_PITCH;
+}
+float encoderMM_Y(volatile long &ticks) {
+    return (static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH;
+}
+
+// --- HELPER: steps to real units ---
+float stepsToMM_X(long steps) {
+    return (static_cast<float>(steps) / STEPS_PER_REV) * X_PITCH;
+}
+float stepsToMM_Y(long steps) {
+    return (static_cast<float>(steps) / STEPS_PER_REV) * Y_PITCH;
+}
+float stepsToDeg_Z(long steps, float gearRatio) {
+    return (static_cast<float>(steps) / STEPS_PER_REV) * 360.0 / gearRatio;
+}
+
+// --- HELPER: check if any motor is actively moving ---
+bool anyMotorMoving() {
+    for (int i = 0; i < numMotors; i++) {
+        if (steppers[i].distanceToGo() != 0) return true;
+    }
+    return false;
+}
+
+// --- HELPER: send machine-readable position line for GUI ---
+// Format: POS:X=12.50,Y=6.25,ZA=15.00,ZB=-3.00,E0=12.48,E1=12.52,E2=6.20,E3=6.22
+void sendPositionUpdate(InputSource source) {
+    float xMM  = stepsToMM_X(steppers[0].currentPosition());
+    float yMM  = stepsToMM_Y(steppers[2].currentPosition());
+    float zaDeg = stepsToDeg_Z(steppers[6].currentPosition(), ZA_GEAR_RATIO);
+    float zbDeg = stepsToDeg_Z(steppers[7].currentPosition(), ZB_GEAR_RATIO);
+    float e0mm = encoderMM_X(encoder0Ticks);
+    float e1mm = encoderMM_X(encoder1Ticks);
+    float e2mm = encoderMM_Y(encoder2Ticks);
+    float e3mm = encoderMM_Y(encoder3Ticks);
+
+    String pos = "POS:X=" + String(xMM, 2)
+               + ",Y=" + String(yMM, 2)
+               + ",ZA=" + String(zaDeg, 2)
+               + ",ZB=" + String(zbDeg, 2)
+               + ",E0=" + String(e0mm, 2)
+               + ",E1=" + String(e1mm, 2)
+               + ",E2=" + String(e2mm, 2)
+               + ",E3=" + String(e3mm, 2);
+    sendResponse(pos, source);
+}
+
+// --- HELPER: get motor position in real units as string ---
+String motorPosStr(int mNum) {
+    long pos = steppers[mNum].currentPosition() + (steppers[mNum].distanceToGo() == 0 ? 0 : steppers[mNum].distanceToGo());
+    // Use target position (current + remaining) since move() is relative
+    long target = steppers[mNum].targetPosition();
+    if (mNum <= 1) return String(stepsToMM_X(target), 2) + "mm";
+    else if (mNum <= 5) return String(stepsToMM_Y(target), 2) + "mm";
+    else return String(stepsToDeg_Z(target, (mNum == 6) ? ZA_GEAR_RATIO : ZB_GEAR_RATIO), 2) + "deg";
 }
 
 void processCommand(String input, InputSource source) {
@@ -115,14 +196,15 @@ void processCommand(String input, InputSource source) {
     input.toUpperCase();
 
     // --- Commands available in ANY mode ---
-    if (input == "STOP") {
+    if (input == "ESTOP") {
         for(int i = 0; i < numMotors; i++) {
             steppers[i].stop();
             steppers[i].setCurrentPosition(steppers[i].currentPosition());
         }
         syncAlarm = false;
-        if (zeroingMode) { zeroingMode = false; sendResponse(">> STOPPED — Exited zeroing mode", source); }
-        else { sendResponse(">> STOPPED", source); }
+        if (zeroingMode) { zeroingMode = false; sendResponse(">> E-STOPPED — Exited jog & zero mode", source); }
+        else { sendResponse(">> E-STOPPED", source); }
+        sendPositionUpdate(source);
         return;
     }
     if (input == "FAN") {
@@ -140,22 +222,40 @@ void processCommand(String input, InputSource source) {
         }
         return;
     }
-    if (input == "STATUS") {
-        String status = "Positions: ";
+
+    // --- POSITIONS: human-readable real units + machine-readable POS line ---
+    if (input == "POSITIONS") {
+        float xMM   = stepsToMM_X(steppers[0].currentPosition());
+        float yMM   = stepsToMM_Y(steppers[2].currentPosition());
+        float zaDeg = stepsToDeg_Z(steppers[6].currentPosition(), ZA_GEAR_RATIO);
+        float zbDeg = stepsToDeg_Z(steppers[7].currentPosition(), ZB_GEAR_RATIO);
+
+        sendResponse("Positions: X=" + String(xMM, 2) + "mm  Y=" + String(yMM, 2)
+                      + "mm  ZA=" + String(zaDeg, 2) + "deg  ZB=" + String(zbDeg, 2) + "deg", source);
+
+        // Raw steps for debugging
+        String raw = "Raw steps: ";
         for(int i = 0; i < numMotors; i++) {
-            status += "M" + String(i) + "=" + String(steppers[i].currentPosition()) + " ";
+            raw += "M" + String(i) + "=" + String(steppers[i].currentPosition()) + " ";
         }
-        sendResponse(status, source);
-        float angle0 = (static_cast<float>(encoder0Ticks) / PULSES_PER_REV) * 360.0;
-        float angle1 = (static_cast<float>(encoder1Ticks) / PULSES_PER_REV) * 360.0;
-        float disp0 = (angle0 / 360.0) * 5.0;
-        float disp1 = (angle1 / 360.0) * 5.0;
-        sendResponse("Encoders: E0=" + String(angle0, 2) + "deg (" + String(disp0, 2) + "mm) E1=" + String(angle1, 2) + "deg (" + String(disp1, 2) + "mm)", source);
-        if (zeroingMode) sendResponse("[ZEROING MODE ACTIVE]", source);
+        sendResponse(raw, source);
+
+        float e0mm = encoderMM_X(encoder0Ticks);
+        float e1mm = encoderMM_X(encoder1Ticks);
+        float e2mm = encoderMM_Y(encoder2Ticks);
+        float e3mm = encoderMM_Y(encoder3Ticks);
+        sendResponse("Encoders: E0=" + String(e0mm, 2) + "mm  E1=" + String(e1mm, 2)
+                      + "mm  E2=" + String(e2mm, 2) + "mm  E3=" + String(e3mm, 2) + "mm", source);
+
+        if (zeroingMode) sendResponse("[JOG & ZERO MODE ACTIVE]", source);
+        if (syncAlarm)   sendResponse("[SYNC ALARM ACTIVE]", source);
+
+        // Machine-readable line for GUI
+        sendPositionUpdate(source);
         return;
     }
 
-    // --- ENTER ZEROING MODE (available in any state) ---
+    // --- ENTER JOG & ZERO MODE (available in any state) ---
     if (input == "ZERO" && !zeroingMode) {
         zeroingMode = true;
         if (syncAlarm) syncAlarm = false;
@@ -163,7 +263,8 @@ void processCommand(String input, InputSource source) {
             steppers[i].stop();
             steppers[i].setCurrentPosition(steppers[i].currentPosition());
         }
-        sendResponse(">> ZEROING MODE — Jog with M0+/- X+/- Y+/- ZA+/- ZB+/-", source);
+        sendResponse(">> JOG & ZERO MODE — Jog with M0+/- X+/- Y+/- ZA+/- ZB+/-", source);
+        sendPositionUpdate(source);
         return;
     }
 
@@ -180,7 +281,7 @@ void processCommand(String input, InputSource source) {
                 else jogAmount = JOG_ZA_STEPS;
                 long delta = (dir == '+') ? jogAmount : -jogAmount;
                 steppers[mNum].move(delta);
-                sendResponse(">> Jog M" + String(mNum) + " " + String(dir) + " (" + String(delta) + " steps)", source);
+                sendResponse(">> Jog M" + String(mNum) + " " + String(dir) + " → " + motorPosStr(mNum), source);
                 return;
             }
         }
@@ -189,25 +290,25 @@ void processCommand(String input, InputSource source) {
             long delta = (input.charAt(1) == '+') ? JOG_X_STEPS : -JOG_X_STEPS;
             steppers[0].move(delta);
             steppers[1].move(delta);
-            sendResponse(">> Jog X group " + String(input.charAt(1)) + " (" + String(delta) + " steps)", source);
+            sendResponse(">> Jog X " + String(input.charAt(1)) + " → " + motorPosStr(0), source);
             return;
         }
         if (input == "Y+" || input == "Y-") {
             long delta = (input.charAt(1) == '+') ? JOG_Y_STEPS : -JOG_Y_STEPS;
             for (int i = 2; i <= 5; i++) steppers[i].move(delta);
-            sendResponse(">> Jog Y group " + String(input.charAt(1)) + " (" + String(delta) + " steps)", source);
+            sendResponse(">> Jog Y " + String(input.charAt(1)) + " → " + motorPosStr(2), source);
             return;
         }
         if (input == "ZA+" || input == "ZA-") {
             long delta = (input.charAt(2) == '+') ? JOG_ZA_STEPS : -JOG_ZA_STEPS;
             steppers[6].move(delta);
-            sendResponse(">> Jog ZA " + String(input.charAt(2)) + " (" + String(delta) + " steps)", source);
+            sendResponse(">> Jog ZA " + String(input.charAt(2)) + " → " + motorPosStr(6), source);
             return;
         }
         if (input == "ZB+" || input == "ZB-") {
             long delta = (input.charAt(2) == '+') ? JOG_ZB_STEPS : -JOG_ZB_STEPS;
             steppers[7].move(delta);
-            sendResponse(">> Jog ZB " + String(input.charAt(2)) + " (" + String(delta) + " steps)", source);
+            sendResponse(">> Jog ZB " + String(input.charAt(2)) + " → " + motorPosStr(7), source);
             return;
         }
         // SET: save current positions as zero
@@ -215,36 +316,43 @@ void processCommand(String input, InputSource source) {
             for (int i = 0; i < numMotors; i++) steppers[i].setCurrentPosition(0);
             encoder0Ticks = 0;
             encoder1Ticks = 0;
+            encoder2Ticks = 0;
+            encoder3Ticks = 0;
             sendResponse(">> Zero point SET — all positions reset to 0", source);
+            sendPositionUpdate(source);
             return;
         }
         // EXIT: leave zeroing mode without saving
         if (input == "EXIT") {
             zeroingMode = false;
-            sendResponse(">> Exited zeroing mode", source);
+            sendResponse(">> Exited jog & zero mode", source);
+            sendPositionUpdate(source);
             return;
         }
-        if (input == "OPTIONS") {
-            sendResponse("--- ZEROING MODE ---", source);
+        if (input == "COMMANDS") {
+            sendResponse("--- JOG & ZERO MODE ---", source);
             sendResponse("Jog: M0+ M0- ... M7+  M7-  (individual motors)", source);
             sendResponse("Jog: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (groups)", source);
             sendResponse("SET = save current pos as zero", source);
             sendResponse("EXIT = leave without saving", source);
-            sendResponse("STATUS, FAN, STOP also available", source);
+            sendResponse("POSITIONS, FAN, ESTOP also available", source);
             return;
         }
-        sendResponse("!!! Zeroing mode", source);
+        sendResponse("!!! Jog & zero mode — invalid command", source);
         return;
     }
 
     // --- NORMAL MODE ---
-    if (input == "OPTIONS") {
+    if (input == "COMMANDS") {
         sendResponse("--- Airfoil Group Controller ---", source);
-        sendResponse("Commands: X[mm], Y[mm], ZA[deg], ZB[deg], HOME, STATUS, OPTIONS, FAN, STOP, ZERO, RESUME", source);
+        sendResponse("Commands: X[mm], Y[mm], ZA[deg], ZB[deg], HOME, POSITIONS, COMMANDS, FAN, ESTOP, ZERO, RESUME", source);
         return;
     }
     if (input == "HOME") {
-        sendResponse(">> Homing...", source);
+        if (anyMotorMoving()) {
+            sendResponse(">> Warning: overriding active move — homing all axes", source);
+        }
+        sendResponse(">> Homing all axes...", source);
         for(int i = 0; i < numMotors; i++) steppers[i].moveTo(0);
         return;
     }
@@ -253,6 +361,7 @@ void processCommand(String input, InputSource source) {
     int endMotor = -1;
     float targetDegrees = 0;
     bool valid = false;
+    String axisName = "";
 
     if (input.startsWith("X")) {
         float mm = input.substring(1).toFloat();
@@ -262,18 +371,22 @@ void processCommand(String input, InputSource source) {
         }
         startMotor = 0; endMotor = 1;
         targetDegrees = (mm / X_PITCH) * 360.0;
+        axisName = "X";
         valid = true;
     } else if (input.startsWith("Y")) {
         startMotor = 2; endMotor = 5;
         targetDegrees = (input.substring(1).toFloat() / Y_PITCH) * 360.0;
+        axisName = "Y";
         valid = true;
     } else if (input.startsWith("ZA")) {
         startMotor = 6; endMotor = 6;
-        targetDegrees = input.substring(2).toFloat() * 5.197539843600339;
+        targetDegrees = input.substring(2).toFloat() * ZA_GEAR_RATIO;
+        axisName = "ZA";
         valid = true;
     } else if (input.startsWith("ZB")) {
         startMotor = 7; endMotor = 7;
-        targetDegrees = input.substring(2).toFloat() * 5.197539843600339;
+        targetDegrees = input.substring(2).toFloat() * ZB_GEAR_RATIO;
+        axisName = "ZB";
         valid = true;
     }
 
@@ -283,14 +396,19 @@ void processCommand(String input, InputSource source) {
     }
 
     if (valid) {
+        // --- Change 5: warn if motors on this axis are still moving ---
+        bool axisBusy = false;
+        for (int i = startMotor; i <= endMotor; i++) {
+            if (steppers[i].distanceToGo() != 0) { axisBusy = true; break; }
+        }
+        if (axisBusy) {
+            sendResponse(">> Warning: " + axisName + " axis still moving — overriding to new target", source);
+        }
+
         long targetSteps = (targetDegrees / 360.0) * STEPS_PER_REV;
         sendResponse(">> Target Steps: " + String(targetSteps), source);
         for(int i = startMotor; i <= endMotor; i++) {
-            if(i==99){
-                steppers[i].moveTo(-targetSteps);
-            } else {
-                steppers[i].moveTo(targetSteps);
-            }
+            steppers[i].moveTo(targetSteps);
         }
     } else if (input.length() > 0) {
         sendResponse("!!! Invalid Command", source);
@@ -327,6 +445,14 @@ void setup() {
     pinMode(EB1plus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EA1plus), handleEncoder1, CHANGE);
 
+    pinMode(EA2plus, INPUT_PULLUP);
+    pinMode(EB2plus, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(EA2plus), handleEncoder2, CHANGE);
+
+    pinMode(EA3plus, INPUT_PULLUP);
+    pinMode(EB3plus, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(EA3plus), handleEncoder3, CHANGE);
+
     delay(500);
     sendResponse("--- System Ready ---", SOURCE_NONE);
 }
@@ -353,8 +479,8 @@ void loop() {
         // --- X encoder sync check (only while X motors are moving, NOT in zeroing mode) ---
         bool xMoving = (steppers[0].distanceToGo() != 0) || (steppers[1].distanceToGo() != 0);
         if (xMoving && !zeroingMode) {
-            float e0mm = (static_cast<float>(encoder0Ticks) / PULSES_PER_REV) * X_PITCH;
-            float e1mm = (static_cast<float>(encoder1Ticks) / PULSES_PER_REV) * X_PITCH;
+            float e0mm = encoderMM_X(encoder0Ticks);
+            float e1mm = encoderMM_X(encoder1Ticks);
             float diff = abs(e0mm - e1mm);
 
             if (diff > X_SYNC_THRESHOLD_MM) {
@@ -363,16 +489,51 @@ void loop() {
                     steppers[i].setCurrentPosition(steppers[i].currentPosition());
                 }
                 syncAlarm = true;
-                sendResponse("!!! SYNC ALARM — E0=" + String(e0mm, 2) + "mm E1=" + String(e1mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
+                alarmSource = "X";
+                sendResponse("!!! SYNC ALARM X — E0=" + String(e0mm, 2) + "mm E1=" + String(e1mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
+                sendPositionUpdate(lastSource);
+                // Auto-enter jog & zero mode for realignment
+                syncAlarm = false;  // clear alarm so jog mode works
+                zeroingMode = true;
+                sendResponse(">> Entering JOG & ZERO MODE — realign motors, then EXIT to resume", lastSource);
+            }
+        }
+
+        // --- Y encoder sync check (only while Y motors are moving, NOT in zeroing mode) ---
+        bool yMoving = (steppers[2].distanceToGo() != 0) || (steppers[3].distanceToGo() != 0)
+                     || (steppers[4].distanceToGo() != 0) || (steppers[5].distanceToGo() != 0);
+        if (yMoving && !zeroingMode && !syncAlarm) {
+            float e2mm = encoderMM_Y(encoder2Ticks);
+            float e3mm = encoderMM_Y(encoder3Ticks);
+            float diff = abs(e2mm - e3mm);
+
+            if (diff > Y_SYNC_THRESHOLD_MM) {
+                for (int i = 0; i < numMotors; i++) {
+                    steppers[i].stop();
+                    steppers[i].setCurrentPosition(steppers[i].currentPosition());
+                }
+                syncAlarm = true;
+                alarmSource = "Y";
+                sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E3=" + String(e3mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
+                sendPositionUpdate(lastSource);
+                // Auto-enter jog & zero mode for realignment
+                syncAlarm = false;  // clear alarm so jog mode works
+                zeroingMode = true;
+                sendResponse(">> Entering JOG & ZERO MODE — realign motors, then EXIT to resume", lastSource);
             }
         }
     } else {
         moving = false;
     }
 
+    // --- Change 4: suppress "Motion Complete" in zeroing mode ---
+    // --- Change 7: auto-send position update on motion complete ---
     static bool wasMoving = false;
     if (!moving && wasMoving) {
-        sendResponse("--- Motion Complete. ---", lastSource);
+        if (!zeroingMode) {
+            sendResponse("--- Motion Complete. ---", lastSource);
+            sendPositionUpdate(lastSource);
+        }
     }
     wasMoving = moving;
 }
