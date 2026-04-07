@@ -170,8 +170,8 @@
   <div class="header-left">
     <div class="logo-icon">W</div>
     <div class="header-title">
-      <h1>DATPO-G8 Airfoil Controller</h1>
-      <span>Wright State University — Wind Tunnel System</span>
+      <h1>Dual Airfoil Testing Platform</h1>
+      <span>Wright State University — Capstone II Group 8</span>
     </div>
   </div>
   <div class="header-right">
@@ -207,10 +207,10 @@
       <div class="card-title amber">Actions</div>
       <div class="action-grid">
         <button class="action-btn home" onclick="sendCmd('HOME')"><span class="icon">⌂</span> Home All</button>
-        <button class="action-btn status-btn" onclick="sendCmd('STATUS')"><span class="icon">◉</span> Status</button>
-        <button class="action-btn status-btn" onclick="sendCmd('OPTIONS')"><span class="icon">☰</span> Options</button>
-        <button class="action-btn fan" onclick="sendCmd('FAN')"><span class="icon">⟳</span> Fan</button>
-        <button class="action-btn zero-mode" onclick="sendCmd('ZERO')"><span class="icon">◎</span> Zero Mode</button>
+        <button class="action-btn status-btn" onclick="sendCmd('STATUS')"><span class="icon">◉</span> Positions</button>
+        <button class="action-btn status-btn" onclick="sendCmd('OPTIONS')"><span class="icon">☰</span> Commands</button>
+        <button class="action-btn fan" onclick="sendCmd('FAN')"><span class="icon">⟳</span> Fan On/Off</button>
+        <button class="action-btn zero-mode" onclick="sendCmd('ZERO')"><span class="icon">◎</span> Jog/Zero Mode</button>
         <button class="action-btn stop" onclick="sendCmd('STOP')">⚠ Emergency Stop</button>
       </div>
     </div>
@@ -240,7 +240,7 @@
       </div>
     </div>
     <div class="card">
-      <div class="card-title sky">Raw Command</div>
+      <div class="card-title sky">Serial Command</div>
       <div class="raw-row">
         <input class="raw-input" type="text" id="rawCmd" placeholder="Type any command..." onkeydown="if(event.key==='Enter')sendRaw()">
         <button class="raw-send" onclick="sendRaw()">Send</button>
