@@ -86,6 +86,13 @@ const float Y_PITCH = 2.0;
 const float ZA_GEAR_RATIO = 5.197539843600339;
 const float ZB_GEAR_RATIO = 5.197539843600339;
 
+// --- Z HOME ANGLES ---
+// Set these to the angle (in degrees) where the physical stop rests.
+// On power-up, the firmware assumes the airfoils are at this angle.
+// Set to 0.0 if no physical stop is used.
+const float ZA_HOME_ANGLE = 0.0;  // TODO: measure and set
+const float ZB_HOME_ANGLE = 0.0;  // TODO: measure and set
+
 // --- ZEROING MODE ---
 bool zeroingMode = false;
 // Jog increments: 0.25mm for X and Y, ~0.25deg for ZA/ZB
@@ -136,7 +143,7 @@ float encoderMM_X(volatile long &ticks) {
     return (static_cast<float>(ticks) / PULSES_PER_REV) * X_PITCH;
 }
 float encoderMM_Y(volatile long &ticks) {
-    return (static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH;
+    return -(static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH;  // negate to match user-facing positive convention
 }
 
 // --- HELPER: steps to real units ---
@@ -144,7 +151,7 @@ float stepsToMM_X(long steps) {
     return (static_cast<float>(steps) / STEPS_PER_REV) * X_PITCH;
 }
 float stepsToMM_Y(long steps) {
-    return (static_cast<float>(steps) / STEPS_PER_REV) * Y_PITCH;
+    return -(static_cast<float>(steps) / STEPS_PER_REV) * Y_PITCH;  // negate: internal negative = user-facing positive
 }
 float stepsToDeg_Z(long steps, float gearRatio) {
     return (static_cast<float>(steps) / STEPS_PER_REV) * 360.0 / gearRatio;
@@ -171,13 +178,13 @@ void sendPositionUpdate(InputSource source) {
     float e3mm = encoderMM_Y(encoder3Ticks);
 
     String pos = "POS:X=" + String(xMM, 2)
-               + ",Y=" + String(yMM, 2)
-               + ",ZA=" + String(zaDeg, 2)
-               + ",ZB=" + String(zbDeg, 2)
-               + ",E0=" + String(e0mm, 2)
-               + ",E1=" + String(e1mm, 2)
-               + ",E2=" + String(e2mm, 2)
-               + ",E3=" + String(e3mm, 2);
+            + ",Y=" + String(yMM, 2)
+            + ",ZA=" + String(zaDeg, 2)
+            + ",ZB=" + String(zbDeg, 2)
+            + ",E0=" + String(e0mm, 2)
+            + ",E1=" + String(e1mm, 2)
+            + ",E2=" + String(e2mm, 2)
+            + ",E3=" + String(e3mm, 2);
     sendResponse(pos, source);
 }
 
@@ -231,7 +238,7 @@ void processCommand(String input, InputSource source) {
         float zbDeg = stepsToDeg_Z(steppers[7].currentPosition(), ZB_GEAR_RATIO);
 
         sendResponse("Positions: X=" + String(xMM, 2) + "mm  Y=" + String(yMM, 2)
-                      + "mm  ZA=" + String(zaDeg, 2) + "deg  ZB=" + String(zbDeg, 2) + "deg", source);
+                    + "mm  ZA=" + String(zaDeg, 2) + "deg  ZB=" + String(zbDeg, 2) + "deg", source);
 
         // Raw steps for debugging
         String raw = "Raw steps: ";
@@ -245,7 +252,7 @@ void processCommand(String input, InputSource source) {
         float e2mm = encoderMM_Y(encoder2Ticks);
         float e3mm = encoderMM_Y(encoder3Ticks);
         sendResponse("Encoders: E0=" + String(e0mm, 2) + "mm  E1=" + String(e1mm, 2)
-                      + "mm  E2=" + String(e2mm, 2) + "mm  E3=" + String(e3mm, 2) + "mm", source);
+                    + "mm  E2=" + String(e2mm, 2) + "mm  E3=" + String(e3mm, 2) + "mm", source);
 
         if (zeroingMode) sendResponse("[JOG & ZERO MODE ACTIVE]", source);
         if (syncAlarm)   sendResponse("[SYNC ALARM ACTIVE]", source);
@@ -365,8 +372,8 @@ void processCommand(String input, InputSource source) {
 
     if (input.startsWith("X")) {
         float mm = input.substring(1).toFloat();
-        if (mm > 415) {
-            sendResponse("TOO LARGE, 415mm is the maximum", source);
+        if (mm > 415 || mm < -415) {
+            sendResponse("!!! Out of range, X limit is +/- 415mm", source);
             return;
         }
         startMotor = 0; endMotor = 1;
@@ -374,8 +381,13 @@ void processCommand(String input, InputSource source) {
         axisName = "X";
         valid = true;
     } else if (input.startsWith("Y")) {
+        float mm = input.substring(1).toFloat();
+        if (mm > 230 || mm < -230) {
+            sendResponse("!!! Out of range, Y limit is +/- 230mm", source);
+            return;
+        }
         startMotor = 2; endMotor = 5;
-        targetDegrees = (input.substring(1).toFloat() / Y_PITCH) * 360.0;
+        targetDegrees = -(mm / Y_PITCH) * 360.0;  // negate: positive user input = negative internal direction
         axisName = "Y";
         valid = true;
     } else if (input.startsWith("ZA")) {
@@ -501,7 +513,7 @@ void loop() {
 
         // --- Y encoder sync check (only while Y motors are moving, NOT in zeroing mode) ---
         bool yMoving = (steppers[2].distanceToGo() != 0) || (steppers[3].distanceToGo() != 0)
-                     || (steppers[4].distanceToGo() != 0) || (steppers[5].distanceToGo() != 0);
+                    || (steppers[4].distanceToGo() != 0) || (steppers[5].distanceToGo() != 0);
         if (yMoving && !zeroingMode && !syncAlarm) {
             float e2mm = encoderMM_Y(encoder2Ticks);
             float e3mm = encoderMM_Y(encoder3Ticks);

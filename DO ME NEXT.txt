@@ -1,0 +1,13 @@
+Revert back from the y direction +/- change:
+y's zero point will be as physically low as possible, then up should be the positive direction (its currently the opposite)
+
+add decalogue, gap, stagger values to gui.
+
+Add za/zb zeroing process
+
+Change za/zb naming to to AoA top/bottom
+
+Tune: 
+	za/zb angling constant 5.whatever
+	The physical gap/stagger between the airfoils at startup (hard minimum)
+		Should only affect gap value? movement is still relative and can be zeroed
