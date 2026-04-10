@@ -95,7 +95,7 @@ const float ZB_HOME_ANGLE = 0.0;  // TODO: measure and set
 
 // --- ZEROING MODE ---
 bool zeroingMode = false;
-// Jog increments: 0.25mm for X and Y, ~0.25deg for ZA/ZB
+// Jog increments: 0.25mm for X and Y, ~0.25deg for AoA Bot/Top (ZA/ZB)
 const long JOG_X_STEPS  = 80;   // 0.25mm: (0.25/5.0)*360/360*1600 = 80 steps
 const long JOG_Y_STEPS  = 200;  // 0.25mm: (0.25/2.0)*360/360*1600 = 200 steps
 const long JOG_ZA_STEPS = 6;    // ~0.251deg: 0.25*5.1975/360*1600 ≈ 6 steps
@@ -143,7 +143,7 @@ float encoderMM_X(volatile long &ticks) {
     return (static_cast<float>(ticks) / PULSES_PER_REV) * X_PITCH;
 }
 float encoderMM_Y(volatile long &ticks) {
-    return -(static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH;  // negate to match user-facing positive convention
+    return (static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH;
 }
 
 // --- HELPER: steps to real units ---
@@ -151,7 +151,7 @@ float stepsToMM_X(long steps) {
     return (static_cast<float>(steps) / STEPS_PER_REV) * X_PITCH;
 }
 float stepsToMM_Y(long steps) {
-    return -(static_cast<float>(steps) / STEPS_PER_REV) * Y_PITCH;  // negate: internal negative = user-facing positive
+    return (static_cast<float>(steps) / STEPS_PER_REV) * Y_PITCH;
 }
 float stepsToDeg_Z(long steps, float gearRatio) {
     return (static_cast<float>(steps) / STEPS_PER_REV) * 360.0 / gearRatio;
@@ -238,7 +238,7 @@ void processCommand(String input, InputSource source) {
         float zbDeg = stepsToDeg_Z(steppers[7].currentPosition(), ZB_GEAR_RATIO);
 
         sendResponse("Positions: X=" + String(xMM, 2) + "mm  Y=" + String(yMM, 2)
-                    + "mm  ZA=" + String(zaDeg, 2) + "deg  ZB=" + String(zbDeg, 2) + "deg", source);
+                    + "mm  AoA Bot=" + String(zaDeg, 2) + "deg  AoA Top=" + String(zbDeg, 2) + "deg", source);
 
         // Raw steps for debugging
         String raw = "Raw steps: ";
@@ -270,7 +270,7 @@ void processCommand(String input, InputSource source) {
             steppers[i].stop();
             steppers[i].setCurrentPosition(steppers[i].currentPosition());
         }
-        sendResponse(">> JOG & ZERO MODE — Jog with M0+/- X+/- Y+/- ZA+/- ZB+/-", source);
+        sendResponse(">> JOG & ZERO MODE — Jog with M0+/- X+/- Y+/- ZA+/- ZB+/- (ZA=AoA Bot, ZB=AoA Top)", source);
         sendPositionUpdate(source);
         return;
     }
@@ -292,7 +292,7 @@ void processCommand(String input, InputSource source) {
                 return;
             }
         }
-        // Jog groups: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB-
+        // Jog groups: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (ZA=AoA Bot, ZB=AoA Top)
         if (input == "X+" || input == "X-") {
             long delta = (input.charAt(1) == '+') ? JOG_X_STEPS : -JOG_X_STEPS;
             steppers[0].move(delta);
@@ -309,13 +309,13 @@ void processCommand(String input, InputSource source) {
         if (input == "ZA+" || input == "ZA-") {
             long delta = (input.charAt(2) == '+') ? JOG_ZA_STEPS : -JOG_ZA_STEPS;
             steppers[6].move(delta);
-            sendResponse(">> Jog ZA " + String(input.charAt(2)) + " → " + motorPosStr(6), source);
+            sendResponse(">> Jog AoA Bot " + String(input.charAt(2)) + " → " + motorPosStr(6), source);
             return;
         }
         if (input == "ZB+" || input == "ZB-") {
             long delta = (input.charAt(2) == '+') ? JOG_ZB_STEPS : -JOG_ZB_STEPS;
             steppers[7].move(delta);
-            sendResponse(">> Jog ZB " + String(input.charAt(2)) + " → " + motorPosStr(7), source);
+            sendResponse(">> Jog AoA Top " + String(input.charAt(2)) + " → " + motorPosStr(7), source);
             return;
         }
         // SET: save current positions as zero
@@ -339,7 +339,7 @@ void processCommand(String input, InputSource source) {
         if (input == "COMMANDS") {
             sendResponse("--- JOG & ZERO MODE ---", source);
             sendResponse("Jog: M0+ M0- ... M7+  M7-  (individual motors)", source);
-            sendResponse("Jog: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (groups)", source);
+            sendResponse("Jog: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (ZA=AoA Bot, ZB=AoA Top)", source);
             sendResponse("SET = save current pos as zero", source);
             sendResponse("EXIT = leave without saving", source);
             sendResponse("POSITIONS, FAN, ESTOP also available", source);
@@ -352,7 +352,7 @@ void processCommand(String input, InputSource source) {
     // --- NORMAL MODE ---
     if (input == "COMMANDS") {
         sendResponse("--- Airfoil Group Controller ---", source);
-        sendResponse("Commands: X[mm], Y[mm], ZA[deg], ZB[deg], HOME, POSITIONS, COMMANDS, FAN, ESTOP, ZERO, RESUME", source);
+        sendResponse("Commands: X[mm], Y[mm], ZA[deg](AoA Bot), ZB[deg](AoA Top), HOME, POSITIONS, COMMANDS, FAN, ESTOP, ZERO, RESUME", source);
         return;
     }
     if (input == "HOME") {
@@ -382,23 +382,23 @@ void processCommand(String input, InputSource source) {
         valid = true;
     } else if (input.startsWith("Y")) {
         float mm = input.substring(1).toFloat();
-        if (mm > 230 || mm < -230) {
-            sendResponse("!!! Out of range, Y limit is +/- 230mm", source);
+        if (mm > 225 || mm < -225) {
+            sendResponse("!!! Out of range, Y limit is +/- 225mm", source);
             return;
         }
         startMotor = 2; endMotor = 5;
-        targetDegrees = -(mm / Y_PITCH) * 360.0;  // negate: positive user input = negative internal direction
+        targetDegrees = (mm / Y_PITCH) * 360.0;
         axisName = "Y";
         valid = true;
     } else if (input.startsWith("ZA")) {
         startMotor = 6; endMotor = 6;
         targetDegrees = input.substring(2).toFloat() * ZA_GEAR_RATIO;
-        axisName = "ZA";
+        axisName = "AoA Bot";
         valid = true;
     } else if (input.startsWith("ZB")) {
         startMotor = 7; endMotor = 7;
         targetDegrees = input.substring(2).toFloat() * ZB_GEAR_RATIO;
-        axisName = "ZB";
+        axisName = "AoA Top";
         valid = true;
     }
 
