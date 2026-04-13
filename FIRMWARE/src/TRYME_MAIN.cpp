@@ -79,10 +79,10 @@ bool syncAlarm = false;
 String alarmSource = "";  // "X" or "Y" — which axis triggered
 
 // --- MOTION SETTINGS ---
-const int MICROSTEP_SETTING = 8;     
+const int MICROSTEP_SETTING = 8;
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
-const float X_PITCH = 5.0; 
-const float Y_PITCH = 2.0; 
+const float X_PITCH = 5.0;
+const float Y_PITCH = 2.0;
 const float ZA_GEAR_RATIO = 5.197539843600339;
 const float ZB_GEAR_RATIO = 5.197539843600339;
 
@@ -281,7 +281,7 @@ void processCommand(String input, InputSource source) {
         if (input.length() >= 3 && input.charAt(0) == 'M') {
             int mNum = input.substring(1, input.length() - 1).toInt();
             char dir = input.charAt(input.length() - 1);
-            if (mNum >= 0 && mNum < numMotors && (dir == '+' || dir == '-')) {
+            if (mNum >= 0 && mNum <= 5 && (dir == '+' || dir == '-')) {
                 long jogAmount;
                 if (mNum <= 1) jogAmount = JOG_X_STEPS;
                 else if (mNum <= 5) jogAmount = JOG_Y_STEPS;
@@ -304,6 +304,20 @@ void processCommand(String input, InputSource source) {
             long delta = (input.charAt(1) == '+') ? JOG_Y_STEPS : -JOG_Y_STEPS;
             for (int i = 2; i <= 5; i++) steppers[i].move(delta);
             sendResponse(">> Jog Y " + String(input.charAt(1)) + " → " + motorPosStr(2), source);
+            return;
+        }
+        if (input == "YL+" || input == "YL-") {
+            long delta = (input.charAt(2) == '+') ? JOG_Y_STEPS : -JOG_Y_STEPS;
+            steppers[2].move(delta);
+            steppers[3].move(delta);
+            sendResponse(">> Jog Y Left " + String(input.charAt(2)) + " → " + motorPosStr(2), source);
+            return;
+        }
+        if (input == "YR+" || input == "YR-") {
+            long delta = (input.charAt(2) == '+') ? JOG_Y_STEPS : -JOG_Y_STEPS;
+            steppers[4].move(delta);
+            steppers[5].move(delta);
+            sendResponse(">> Jog Y Right " + String(input.charAt(2)) + " → " + motorPosStr(4), source);
             return;
         }
         if (input == "ZA+" || input == "ZA-") {
@@ -338,8 +352,11 @@ void processCommand(String input, InputSource source) {
         }
         if (input == "COMMANDS") {
             sendResponse("--- JOG & ZERO MODE ---", source);
-            sendResponse("Jog: M0+ M0- ... M7+  M7-  (individual motors)", source);
-            sendResponse("Jog: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (ZA=AoA Bot, ZB=AoA Top)", source);
+            sendResponse("Jog: M0+ M0- (X Left)  M1+ M1- (X Right)", source);
+            sendResponse("Jog: M2+ M2- (Y Left Close)  M3+ M3- (Y Left Far)", source);
+            sendResponse("Jog: M4+ M4- (Y Right Close)  M5+ M5- (Y Right Far)", source);
+            sendResponse("Jog groups: X+ X-  Y+ Y-  YL+ YL- (Y Left)  YR+ YR- (Y Right)", source);
+            sendResponse("Jog: ZA+ ZA- (AoA Bot)  ZB+ ZB- (AoA Top)", source);
             sendResponse("SET = save current pos as zero", source);
             sendResponse("EXIT = leave without saving", source);
             sendResponse("POSITIONS, FAN, ESTOP also available", source);
@@ -391,13 +408,23 @@ void processCommand(String input, InputSource source) {
         axisName = "Y";
         valid = true;
     } else if (input.startsWith("ZA")) {
+        float deg = input.substring(2).toFloat();
+        if (deg > 45 || deg < -45) {
+            sendResponse("!!! Out of range, AoA Bot limit is +/- 45deg", source);
+            return;
+        }
         startMotor = 6; endMotor = 6;
-        targetDegrees = input.substring(2).toFloat() * ZA_GEAR_RATIO;
+        targetDegrees = deg * ZA_GEAR_RATIO;
         axisName = "AoA Bot";
         valid = true;
     } else if (input.startsWith("ZB")) {
+        float deg = input.substring(2).toFloat();
+        if (deg > 45 || deg < -45) {
+            sendResponse("!!! Out of range, AoA Top limit is +/- 45deg", source);
+            return;
+        }
         startMotor = 7; endMotor = 7;
-        targetDegrees = input.substring(2).toFloat() * ZB_GEAR_RATIO;
+        targetDegrees = deg * ZB_GEAR_RATIO;
         axisName = "AoA Top";
         valid = true;
     }
