@@ -3,13 +3,17 @@ FLIP FAN
 
 add decalogue, gap, stagger values to gui.
 
-Change za/zb naming to to AoA top/bottom
-
+	
 Tune: 
 	za/zb angling constant 5.whatever
 	The physical gap/stagger between the airfoils at startup (hard minimum)
 		Should only affect gap value? movement is still relative and can be zeroed
 
+
+GAP AT ZERO IN THE Y: 75mm
+GAP AT ZERO IN THE X: 229-230mm
+
+add angle limits
 
 
 -----------------------------------------------------------------------------------------------

@@ -41,7 +41,7 @@
   .card-title.teal::before{background:var(--teal)}.card-title.amber::before{background:var(--amber)}.card-title.rose::before{background:var(--rose)}.card-title.sky::before{background:var(--sky)}.card-title.violet::before{background:var(--violet)}
   .axis-group{display:flex;flex-direction:column;gap:8px}
   .axis-row{display:flex;align-items:center;gap:8px}
-  .axis-badge{width:40px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);font-family:'Fira Code',monospace;font-size:12px;font-weight:700;flex-shrink:0}
+  .axis-badge{width:62px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);font-family:'Fira Code',monospace;font-size:10px;font-weight:700;flex-shrink:0}
   .axis-badge.x{background:var(--teal-glow);color:var(--teal);border:1px solid rgba(13,148,136,0.15)}.axis-badge.y{background:var(--amber-glow);color:var(--amber);border:1px solid rgba(217,119,6,0.15)}.axis-badge.za{background:var(--violet-glow);color:var(--violet);border:1px solid rgba(124,58,237,0.15)}.axis-badge.zb{background:var(--sky-glow);color:var(--sky);border:1px solid rgba(2,132,199,0.15)}
   .axis-input{flex:1;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'Fira Code',monospace;font-size:13px;outline:none;transition:all .2s}
   .axis-input:focus{border-color:rgba(13,148,136,0.3);box-shadow:0 0 0 3px rgba(13,148,136,0.06)}
@@ -128,8 +128,8 @@
 <div class="pos-banner" id="posBanner">
   <div class="pos-cell" id="posItemX"><span class="pos-lbl x">X</span><span class="pos-val" id="posX">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
   <div class="pos-cell" id="posItemY"><span class="pos-lbl y">Y</span><span class="pos-val" id="posY">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
-  <div class="pos-cell" id="posItemZA"><span class="pos-lbl za">ZA</span><span class="pos-val" id="posZA">—</span><span class="pos-u">deg</span></div><div class="pos-sep"></div>
-  <div class="pos-cell" id="posItemZB"><span class="pos-lbl zb">ZB</span><span class="pos-val" id="posZB">—</span><span class="pos-u">deg</span></div><div class="pos-sep"></div>
+  <div class="pos-cell" id="posItemZB"><span class="pos-lbl zb">AoA Top</span><span class="pos-val" id="posZB">—</span><span class="pos-u">deg</span></div><div class="pos-sep"></div>
+  <div class="pos-cell" id="posItemZA"><span class="pos-lbl za">AoA Bot</span><span class="pos-val" id="posZA">—</span><span class="pos-u">deg</span></div><div class="pos-sep"></div>
   <div class="pos-cell" id="posItemE0"><span class="pos-lbl e0">E0 (left x)</span><span class="pos-val" id="posE0">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
   <div class="pos-cell" id="posItemE1"><span class="pos-lbl e1">E1 (right x)</span><span class="pos-val" id="posE1">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
   <div class="pos-cell" id="posItemE2"><span class="pos-lbl e2">E2 (close left y)</span><span class="pos-val" id="posE2">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
@@ -142,8 +142,8 @@
     <div class="card"><div class="card-title teal">Axis Control</div><div class="axis-group">
       <div class="axis-row"><div class="axis-badge x">X</div><input class="axis-input" type="number" id="xVal" placeholder="0.0" step="0.1" onkeydown="handleAxisEnter(event,'X','xVal')"><span class="axis-unit">mm</span><button class="axis-send" onclick="sendAxis('X','xVal')">Send</button></div>
       <div class="axis-row"><div class="axis-badge y">Y</div><input class="axis-input" type="number" id="yVal" placeholder="0.0" step="0.1" onkeydown="handleAxisEnter(event,'Y','yVal')"><span class="axis-unit">mm</span><button class="axis-send" onclick="sendAxis('Y','yVal')">Send</button></div>
-      <div class="axis-row"><div class="axis-badge za">ZA</div><input class="axis-input" type="number" id="zaVal" placeholder="0.0" step="0.1" onkeydown="handleAxisEnter(event,'ZA','zaVal')"><span class="axis-unit">deg</span><button class="axis-send" onclick="sendAxis('ZA','zaVal')">Send</button></div>
-      <div class="axis-row"><div class="axis-badge zb">ZB</div><input class="axis-input" type="number" id="zbVal" placeholder="0.0" step="0.1" onkeydown="handleAxisEnter(event,'ZB','zbVal')"><span class="axis-unit">deg</span><button class="axis-send" onclick="sendAxis('ZB','zbVal')">Send</button></div>
+      <div class="axis-row"><div class="axis-badge zb">AoA Top</div><input class="axis-input" type="number" id="zbVal" placeholder="0.0" step="0.1" onkeydown="handleAxisEnter(event,'ZB','zbVal')"><span class="axis-unit">deg</span><button class="axis-send" onclick="sendAxis('ZB','zbVal')">Send</button></div>
+      <div class="axis-row"><div class="axis-badge za">AoA Bot</div><input class="axis-input" type="number" id="zaVal" placeholder="0.0" step="0.1" onkeydown="handleAxisEnter(event,'ZA','zaVal')"><span class="axis-unit">deg</span><button class="axis-send" onclick="sendAxis('ZA','zaVal')">Send</button></div>
     </div></div>
     <div class="card"><div class="card-title amber">Actions</div><div class="action-grid">
       <button class="action-btn home" onclick="sendCmd('HOME')"><span class="icon">⌂</span> Home All</button>
@@ -161,14 +161,14 @@
         <div class="jog-row"><span class="jog-label">M3</span><button class="jog-btn" data-cmd="M3-">−</button><button class="jog-btn" data-cmd="M3+">+</button><span class="jog-info">Y</span></div>
         <div class="jog-row"><span class="jog-label">M4</span><button class="jog-btn" data-cmd="M4-">−</button><button class="jog-btn" data-cmd="M4+">+</button><span class="jog-info">Y</span></div>
         <div class="jog-row"><span class="jog-label">M5</span><button class="jog-btn" data-cmd="M5-">−</button><button class="jog-btn" data-cmd="M5+">+</button><span class="jog-info">Y</span></div>
-        <div class="jog-row"><span class="jog-label">M6</span><button class="jog-btn" data-cmd="M6-">−</button><button class="jog-btn" data-cmd="M6+">+</button><span class="jog-info">ZA</span></div>
-        <div class="jog-row"><span class="jog-label">M7</span><button class="jog-btn" data-cmd="M7-">−</button><button class="jog-btn" data-cmd="M7+">+</button><span class="jog-info">ZB</span></div>
+        <div class="jog-row"><span class="jog-label">M7</span><button class="jog-btn" data-cmd="M7-">−</button><button class="jog-btn" data-cmd="M7+">+</button><span class="jog-info">AoA Top</span></div>
+        <div class="jog-row"><span class="jog-label">M6</span><button class="jog-btn" data-cmd="M6-">−</button><button class="jog-btn" data-cmd="M6+">+</button><span class="jog-info">AoA Bot</span></div>
       </div>
       <div class="zero-section"><div class="zero-section-label">Axis Groups</div>
         <div class="jog-row"><span class="jog-label">X</span><button class="jog-btn" data-cmd="X-">−</button><button class="jog-btn" data-cmd="X+">+</button><span class="jog-info">0.25mm</span></div>
         <div class="jog-row"><span class="jog-label">Y</span><button class="jog-btn" data-cmd="Y-">−</button><button class="jog-btn" data-cmd="Y+">+</button><span class="jog-info">0.25mm</span></div>
-        <div class="jog-row"><span class="jog-label">ZA</span><button class="jog-btn" data-cmd="ZA-">−</button><button class="jog-btn" data-cmd="ZA+">+</button><span class="jog-info">~0.25°</span></div>
-        <div class="jog-row"><span class="jog-label">ZB</span><button class="jog-btn" data-cmd="ZB-">−</button><button class="jog-btn" data-cmd="ZB+">+</button><span class="jog-info">~0.25°</span></div>
+        <div class="jog-row"><span class="jog-label">ZB</span><button class="jog-btn" data-cmd="ZB-">−</button><button class="jog-btn" data-cmd="ZB+">+</button><span class="jog-info">AoA Top ~0.25°</span></div>
+        <div class="jog-row"><span class="jog-label">ZA</span><button class="jog-btn" data-cmd="ZA-">−</button><button class="jog-btn" data-cmd="ZA+">+</button><span class="jog-info">AoA Bot ~0.25°</span></div>
       </div>
     </div>
   </div>
