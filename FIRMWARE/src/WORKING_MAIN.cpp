@@ -95,11 +95,14 @@ const float ZB_HOME_ANGLE = 0.0;  // TODO: measure and set
 
 // --- ZEROING MODE ---
 bool zeroingMode = false;
-// Jog increments: 0.25mm for X and Y, ~0.25deg for AoA Bot/Top (ZA/ZB)
-const long JOG_X_STEPS  = 80;   // 0.25mm: (0.25/5.0)*360/360*1600 = 80 steps
-const long JOG_Y_STEPS  = 200;  // 0.25mm: (0.25/2.0)*360/360*1600 = 200 steps
-const long JOG_ZA_STEPS = 6;    // ~0.251deg: 0.25*5.1975/360*1600 ≈ 6 steps
-const long JOG_ZB_STEPS = 6;    // ~0.251deg: same as ZA
+// Active jog step size — changed at runtime via STEP command
+float jogStepMM  = 0.25;  // mm per jog press (X, Y, YL, YR)
+float jogStepDeg = 0.25;  // degrees per jog press (ZA, ZB)
+
+long getJogStepsX()  { return max(1L, lround((jogStepMM  / X_PITCH)  * STEPS_PER_REV)); }
+long getJogStepsY()  { return max(1L, lround((jogStepMM  / Y_PITCH)  * STEPS_PER_REV)); }
+long getJogStepsZA() { return max(1L, lround((jogStepDeg * ZA_GEAR_RATIO / 360.0) * STEPS_PER_REV)); }
+long getJogStepsZB() { return max(1L, lround((jogStepDeg * ZB_GEAR_RATIO / 360.0) * STEPS_PER_REV)); }
 
 // --- ACCELSTEPPER OBJECTS ---
 AccelStepper steppers[] = {
@@ -283,9 +286,9 @@ void processCommand(String input, InputSource source) {
             char dir = input.charAt(input.length() - 1);
             if (mNum >= 0 && mNum <= 5 && (dir == '+' || dir == '-')) {
                 long jogAmount;
-                if (mNum <= 1) jogAmount = JOG_X_STEPS;
-                else if (mNum <= 5) jogAmount = JOG_Y_STEPS;
-                else jogAmount = JOG_ZA_STEPS;
+                if (mNum <= 1) jogAmount = getJogStepsX();
+                else if (mNum <= 5) jogAmount = getJogStepsY();
+                else jogAmount = getJogStepsZA();
                 long delta = (dir == '+') ? jogAmount : -jogAmount;
                 steppers[mNum].move(delta);
                 sendResponse(">> Jog M" + String(mNum) + " " + String(dir) + " → " + motorPosStr(mNum), source);
@@ -294,42 +297,55 @@ void processCommand(String input, InputSource source) {
         }
         // Jog groups: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (ZA=AoA Bot, ZB=AoA Top)
         if (input == "X+" || input == "X-") {
-            long delta = (input.charAt(1) == '+') ? JOG_X_STEPS : -JOG_X_STEPS;
+            long delta = (input.charAt(1) == '+') ? getJogStepsX() : -getJogStepsX();
             steppers[0].move(delta);
             steppers[1].move(delta);
             sendResponse(">> Jog X " + String(input.charAt(1)) + " → " + motorPosStr(0), source);
             return;
         }
         if (input == "Y+" || input == "Y-") {
-            long delta = (input.charAt(1) == '+') ? JOG_Y_STEPS : -JOG_Y_STEPS;
+            long delta = (input.charAt(1) == '+') ? getJogStepsY() : -getJogStepsY();
             for (int i = 2; i <= 5; i++) steppers[i].move(delta);
             sendResponse(">> Jog Y " + String(input.charAt(1)) + " → " + motorPosStr(2), source);
             return;
         }
         if (input == "YL+" || input == "YL-") {
-            long delta = (input.charAt(2) == '+') ? JOG_Y_STEPS : -JOG_Y_STEPS;
+            long delta = (input.charAt(2) == '+') ? getJogStepsY() : -getJogStepsY();
             steppers[2].move(delta);
             steppers[3].move(delta);
             sendResponse(">> Jog Y Left " + String(input.charAt(2)) + " → " + motorPosStr(2), source);
             return;
         }
         if (input == "YR+" || input == "YR-") {
-            long delta = (input.charAt(2) == '+') ? JOG_Y_STEPS : -JOG_Y_STEPS;
+            long delta = (input.charAt(2) == '+') ? getJogStepsY() : -getJogStepsY();
             steppers[4].move(delta);
             steppers[5].move(delta);
             sendResponse(">> Jog Y Right " + String(input.charAt(2)) + " → " + motorPosStr(4), source);
             return;
         }
         if (input == "ZA+" || input == "ZA-") {
-            long delta = (input.charAt(2) == '+') ? JOG_ZA_STEPS : -JOG_ZA_STEPS;
+            long delta = (input.charAt(2) == '+') ? getJogStepsZA() : -getJogStepsZA();
             steppers[6].move(delta);
             sendResponse(">> Jog AoA Bot " + String(input.charAt(2)) + " → " + motorPosStr(6), source);
             return;
         }
         if (input == "ZB+" || input == "ZB-") {
-            long delta = (input.charAt(2) == '+') ? JOG_ZB_STEPS : -JOG_ZB_STEPS;
+            long delta = (input.charAt(2) == '+') ? getJogStepsZB() : -getJogStepsZB();
             steppers[7].move(delta);
             sendResponse(">> Jog AoA Top " + String(input.charAt(2)) + " → " + motorPosStr(7), source);
+            return;
+        }
+        // STEP: set active jog increment
+        if (input.startsWith("STEP")) {
+            String szStr = input.substring(4);  // compare as string to avoid float precision issues
+            float sz = szStr.toFloat();
+            if (szStr == "0.1" || szStr == "0.25" || szStr == "0.5" || szStr == "1.0" || szStr == "2.0" || szStr == "3.0") {
+                jogStepMM  = sz;
+                jogStepDeg = sz;
+                sendResponse(">> Step size: " + String(sz, 2) + "mm / " + String(sz, 2) + "deg", source);
+            } else {
+                sendResponse("!!! Invalid step. Options: 0.1  0.25  0.5  1.0  2.0  3.0", source);
+            }
             return;
         }
         // SET: save current positions as zero
@@ -357,6 +373,7 @@ void processCommand(String input, InputSource source) {
             sendResponse("Jog: M4+ M4- (Y Right Close)  M5+ M5- (Y Right Far)", source);
             sendResponse("Jog groups: X+ X-  Y+ Y-  YL+ YL- (Y Left)  YR+ YR- (Y Right)", source);
             sendResponse("Jog: ZA+ ZA- (AoA Bot)  ZB+ ZB- (AoA Top)", source);
+            sendResponse("STEP0.1 STEP0.25 STEP0.5 STEP1.0 STEP2.0 STEP3.0 = set jog increment", source);
             sendResponse("SET = save current pos as zero", source);
             sendResponse("EXIT = leave without saving", source);
             sendResponse("POSITIONS, FAN, ESTOP also available", source);
@@ -409,8 +426,8 @@ void processCommand(String input, InputSource source) {
         valid = true;
     } else if (input.startsWith("ZA")) {
         float deg = input.substring(2).toFloat();
-        if (deg > 45 || deg < -45) {
-            sendResponse("!!! Out of range, AoA Bot limit is +/- 45deg", source);
+        if (deg > 20 || deg < -20) {
+            sendResponse("!!! Out of range, AoA Bot limit is +/- 20deg", source);
             return;
         }
         startMotor = 6; endMotor = 6;
@@ -419,8 +436,8 @@ void processCommand(String input, InputSource source) {
         valid = true;
     } else if (input.startsWith("ZB")) {
         float deg = input.substring(2).toFloat();
-        if (deg > 45 || deg < -45) {
-            sendResponse("!!! Out of range, AoA Top limit is +/- 45deg", source);
+        if (deg > 20 || deg < -20) {
+            sendResponse("!!! Out of range, AoA Top limit is +/- 20deg", source);
             return;
         }
         startMotor = 7; endMotor = 7;

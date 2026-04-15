@@ -76,7 +76,7 @@
   .pos-cell.updated{background:rgba(13,148,136,0.06);border-radius:4px}
   .pos-sep{width:1px;height:16px;background:var(--border);flex-shrink:0}
   .pos-lbl{font-family:'Fira Code',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
-  .pos-lbl.x{color:var(--teal)}.pos-lbl.y{color:var(--amber)}.pos-lbl.za{color:var(--violet)}.pos-lbl.zb{color:var(--sky)}.pos-lbl.e0{color:rgba(13,148,136,0.5)}.pos-lbl.e1{color:rgba(13,148,136,0.5)}.pos-lbl.e2{color:rgba(217,119,6,0.5)}.pos-lbl.e3{color:rgba(217,119,6,0.5)}
+  .pos-lbl.x{color:var(--teal)}.pos-lbl.y{color:var(--amber)}.pos-lbl.za{color:var(--violet)}.pos-lbl.zb{color:var(--sky)}.pos-lbl.e0{color:rgba(13,148,136,0.5)}.pos-lbl.e1{color:rgba(13,148,136,0.5)}.pos-lbl.e2{color:rgba(217,119,6,0.5)}.pos-lbl.e5{color:rgba(217,119,6,0.5)}.pos-lbl.e6{color:rgba(124,58,237,0.5)}.pos-lbl.e7{color:rgba(2,132,199,0.5)}
   .pos-lbl.stagger{color:var(--teal)}.pos-lbl.gap{color:var(--amber)}.pos-lbl.decalage{color:var(--violet)}
   .pos-cell.derived .pos-val{font-size:14px;font-weight:700}.pos-cell.derived .pos-lbl{font-size:10px;letter-spacing:1px}
   .pos-val{font-family:'Fira Code',monospace;font-size:12px;font-weight:600;color:var(--text);min-width:46px;text-align:right}
@@ -92,6 +92,12 @@
   .jog-btn:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-glow)}
   .jog-btn:active{transform:scale(0.95)}
   .jog-info{font-family:'Fira Code',monospace;font-size:9px;color:var(--text-muted);margin-left:6px}
+  .step-selector{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .step-selector-label{font-family:'Fira Code',monospace;font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1.2px;white-space:nowrap;margin-right:2px}
+  .step-btn{padding:5px 9px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-family:'Fira Code',monospace;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s}
+  .step-btn:hover{border-color:var(--amber);color:var(--amber);background:var(--amber-glow)}
+  .step-btn.active{border-color:var(--amber);background:var(--amber-glow);color:var(--amber)}
+  .step-unit{font-family:'Fira Code',monospace;font-size:9px;color:var(--text-muted);margin-left:2px}
   .zero-actions{display:flex;gap:8px;margin-bottom:14px}
   .zero-btn-set{flex:1;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--teal);background:var(--teal-glow);color:var(--teal);font-family:'Outfit',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:0.5px}
   .zero-btn-set:hover{background:var(--teal-strong)}
@@ -144,7 +150,9 @@
     <div class="pos-cell" id="posItemE0"><span class="pos-lbl e0">E0 X Left</span><span class="pos-val" id="posE0">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
     <div class="pos-cell" id="posItemE1"><span class="pos-lbl e1">E1 X Right</span><span class="pos-val" id="posE1">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
     <div class="pos-cell" id="posItemE2"><span class="pos-lbl e2">E2 Y Left Close</span><span class="pos-val" id="posE2">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
-    <div class="pos-cell" id="posItemE3"><span class="pos-lbl e3">E3 Y Right Far</span><span class="pos-val" id="posE3">—</span><span class="pos-u">mm</span></div>
+    <div class="pos-cell" id="posItemE5"><span class="pos-lbl e5">E5 Y Right Far</span><span class="pos-val" id="posE5">—</span><span class="pos-u">mm</span></div><div class="pos-sep"></div>
+    <div class="pos-cell" id="posItemE6"><span class="pos-lbl e6">E6 AoA Bot</span><span class="pos-val" id="posE6">—</span><span class="pos-u">deg</span></div><div class="pos-sep"></div>
+    <div class="pos-cell" id="posItemE7"><span class="pos-lbl e7">E7 AoA Top</span><span class="pos-val" id="posE7">—</span><span class="pos-u">deg</span></div>
   </div>
 </div>
 <div class="main">
@@ -164,7 +172,18 @@
       <button class="action-btn zero-mode" id="zeroBtnMain" onclick="sendCmd('ZERO')"><span class="icon">◎</span> Jog & Zero Mode</button>
       <button class="action-btn stop" onclick="sendCmd('ESTOP')">⚠ E-Stop</button>
     </div></div>
-    <div class="zero-card" id="zeroCard"><div class="card-title amber">Jog & Zero Mode — 0.25mm / 0.25°</div><div class="zero-actions"><button class="zero-btn-set" onclick="sendCmd('SET')">◎ Set Zero Point</button><button class="zero-btn-exit" onclick="sendCmd('EXIT')">Exit Zeroing</button></div>
+    <div class="zero-card" id="zeroCard"><div class="card-title amber">Jog & Zero Mode</div>
+      <div class="step-selector">
+        <span class="step-selector-label">Step</span>
+        <button class="step-btn" data-step="0.1" onclick="setJogStep(0.1)">0.1</button>
+        <button class="step-btn active" data-step="0.25" onclick="setJogStep(0.25)">0.25</button>
+        <button class="step-btn" data-step="0.5" onclick="setJogStep(0.5)">0.5</button>
+        <button class="step-btn" data-step="1.0" onclick="setJogStep(1.0)">1.0</button>
+        <button class="step-btn" data-step="2.0" onclick="setJogStep(2.0)">2.0</button>
+        <button class="step-btn" data-step="3.0" onclick="setJogStep(3.0)">3.0</button>
+        <span class="step-unit">mm / °</span>
+      </div>
+      <div class="zero-actions"><button class="zero-btn-set" onclick="sendCmd('SET')">◎ Set Zero Point</button><button class="zero-btn-exit" onclick="sendCmd('EXIT')">Exit Zeroing</button></div>
       <div class="zero-section"><div class="zero-section-label">Individual Motors</div>
         <div class="jog-row"><span class="jog-label">M0</span><button class="jog-btn" data-cmd="M0-">−</button><button class="jog-btn" data-cmd="M0+">+</button><span class="jog-info">X Left</span></div>
         <div class="jog-row"><span class="jog-label">M1</span><button class="jog-btn" data-cmd="M1-">−</button><button class="jog-btn" data-cmd="M1+">+</button><span class="jog-info">X Right</span></div>
@@ -191,8 +210,8 @@
 <script>
 let port=null,reader=null,writer=null,readableStreamClosed=null,writableStreamClosed=null,isConnected=false,zeroingActive=false,alarmActive=false,motorsMoving=false;
 const consoleEl=document.getElementById('consoleOutput'),statusDot=document.getElementById('statusDot'),statusText=document.getElementById('statusText'),statusPill=document.getElementById('statusPill'),connectBtn=document.getElementById('connectBtn'),zeroCard=document.getElementById('zeroCard'),alarmBanner=document.getElementById('alarmBanner'),alarmDetail=document.getElementById('alarmDetail'),zeroBtnMain=document.getElementById('zeroBtnMain'),movingPill=document.getElementById('movingPill');
-const posEls={X:document.getElementById('posX'),Y:document.getElementById('posY'),ZA:document.getElementById('posZA'),ZB:document.getElementById('posZB'),E0:document.getElementById('posE0'),E1:document.getElementById('posE1'),E2:document.getElementById('posE2'),E3:document.getElementById('posE3'),Stagger:document.getElementById('posStagger'),Gap:document.getElementById('posGap'),Decalage:document.getElementById('posDecalage')};
-const posItems={X:document.getElementById('posItemX'),Y:document.getElementById('posItemY'),ZA:document.getElementById('posItemZA'),ZB:document.getElementById('posItemZB'),E0:document.getElementById('posItemE0'),E1:document.getElementById('posItemE1'),E2:document.getElementById('posItemE2'),E3:document.getElementById('posItemE3'),Stagger:document.getElementById('posItemStagger'),Gap:document.getElementById('posItemGap'),Decalage:document.getElementById('posItemDecalage')};
+const posEls={X:document.getElementById('posX'),Y:document.getElementById('posY'),ZA:document.getElementById('posZA'),ZB:document.getElementById('posZB'),E0:document.getElementById('posE0'),E1:document.getElementById('posE1'),E2:document.getElementById('posE2'),E5:document.getElementById('posE5'),E6:document.getElementById('posE6'),E7:document.getElementById('posE7'),Stagger:document.getElementById('posStagger'),Gap:document.getElementById('posGap'),Decalage:document.getElementById('posDecalage')};
+const posItems={X:document.getElementById('posItemX'),Y:document.getElementById('posItemY'),ZA:document.getElementById('posItemZA'),ZB:document.getElementById('posItemZB'),E0:document.getElementById('posItemE0'),E1:document.getElementById('posItemE1'),E2:document.getElementById('posItemE2'),E5:document.getElementById('posItemE5'),E6:document.getElementById('posItemE6'),E7:document.getElementById('posItemE7'),Stagger:document.getElementById('posItemStagger'),Gap:document.getElementById('posItemGap'),Decalage:document.getElementById('posItemDecalage')};
 const posTimestamp=document.getElementById('posTimestamp');
 function setMoving(m){motorsMoving=m;movingPill.className='moving-pill'+(m?' active':'');if(m)zeroBtnMain.classList.add('locked');else zeroBtnMain.classList.remove('locked');}
 const STAGGER_OFFSET=-230;const GAP_OFFSET=75;
@@ -204,35 +223,7 @@ if(!isNaN(_lastY)){posEls['Gap'].textContent=(_lastY+GAP_OFFSET).toFixed(2);flas
 if(!isNaN(_lastZA)&&!isNaN(_lastZB)){posEls['Decalage'].textContent=(_lastZB-_lastZA).toFixed(2);flashUpdate('Decalage');}
 const ts=new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});posTimestamp.textContent=ts;return true;}
 function log(t,c='rx'){if(c==='rx'&&parsePosLine(t))return;const l=document.createElement('div');l.className='console-line '+c;const ts=new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});const p=c==='tx'?'›':c==='err'?'✗':c==='sys'?'●':'‹';l.innerHTML=`<span class="time">${ts}</span><span class="prefix">${p}</span> <span class="content">${escapeHtml(t)}</span>`;consoleEl.appendChild(l);consoleEl.scrollTop=consoleEl.scrollHeight;checkMode(t);}
-function checkMode(t){if(t.includes('JOG & ZERO MODE')){zeroingActive=true;zeroCard.classList.add('active');}if(t.includes('Exited jog & zero mode')||t.includes('E-STOPPED')){zeroingActive=false;zeroCard.classList.remove('active');}if(t.includes('Zero point SET')){zeroingActive=true;}if(t.includes('>> Target Steps:')||t.includes('>> Homing all axes')){setMoving(true);}if(t.includes('Motion Complete')||t.includes('E-STOPPED')||t.includes('SYNC ALARM')){setMoving(false);}if(t.includes('SYNC ALARM')){alarmActive=true;alarmBanner.classList.add('active');const alarmText=document.getElementById('alarmText');if(t.includes('SYNC ALARM X')){alarmText.textContent='SYNC ALARM — X Encoders Out of Sync';const m=t.match(/E0=([\d.-]+)mm E1=([\d.-]+)mm \(diff=([\d.-]+)mm\)/);if(m)alarmDetail.textContent='E0='+m[1]+'mm  E1='+m[2]+'mm  diff='+m[3]+'mm';else alarmDetail.textContent='Motors paused. Clear alarm to resume.';}else if(t.includes('SYNC ALARM Y')){alarmText.textContent='SYNC ALARM — Y Encoders Out of Sync';const m=t.match(/E2=([\d.-]+)mm E3=([\d.-]+)mm \(diff=([\d.-]+)mm\)/);if(m)alarmDetail.textContent='E2='+m[1]+'mm  E3='+m[2]+'mm  diff='+m[3]+'mm';else alarmDetail.textContent='Motors paused. Clear alarm to resume.';}}if(t.includes('Alarm cleared')||t.includes('E-STOPPED')||t.includes('JOG & ZERO MODE')){alarmActive=false;alarmBanner.classList.remove('active');}}
+function checkMode(t){if(t.includes('JOG & ZERO MODE')){zeroingActive=true;zeroCard.classList.add('active');}if(t.includes('Exited jog & zero mode')||t.includes('E-STOPPED')){zeroingActive=false;zeroCard.classList.remove('active');}if(t.includes('Zero point SET')){zeroingActive=true;}if(t.includes('>> Target Steps:')||t.includes('>> Homing all axes')){setMoving(true);}if(t.includes('Motion Complete')||t.includes('E-STOPPED')||t.includes('SYNC ALARM')){setMoving(false);}if(t.includes('SYNC ALARM')){alarmActive=true;alarmBanner.classList.add('active');const alarmText=document.getElementById('alarmText');if(t.includes('SYNC ALARM X')){alarmText.textContent='SYNC ALARM — X Encoders Out of Sync';const m=t.match(/E0=([\d.-]+)mm E1=([\d.-]+)mm \(diff=([\d.-]+)mm\)/);if(m)alarmDetail.textContent='E0='+m[1]+'mm  E1='+m[2]+'mm  diff='+m[3]+'mm';else alarmDetail.textContent='Motors paused. Clear alarm to resume.';}else if(t.includes('SYNC ALARM Y')){alarmText.textContent='SYNC ALARM — Y Encoders Out of Sync';const m=t.match(/E2\(M2\)=([\d.-]+)mm E5\(M5\)=([\d.-]+)mm \(diff=([\d.-]+)mm\)/);if(m)alarmDetail.textContent='E2(M2)='+m[1]+'mm  E5(M5)='+m[2]+'mm  diff='+m[3]+'mm';else alarmDetail.textContent='Motors paused. Clear alarm to resume.';}}if(t.includes('Alarm cleared')||t.includes('E-STOPPED')||t.includes('JOG & ZERO MODE')){alarmActive=false;alarmBanner.classList.remove('active');}}
 function clearAlarm(){sendString('RESUME');}
-function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function clearConsole(){consoleEl.innerHTML='';log('Console cleared','sys')}
-function setConnected(c,l){isConnected=c;statusDot.className='status-dot'+(c?' connected':'');statusPill.className='status-pill'+(c?' connected':'');statusText.textContent=l||(c?'Connected':'Disconnected');connectBtn.textContent=c?'Disconnect':'Connect';connectBtn.className='connect-btn'+(c?' connected':'');if(!c){for(const k in posEls)posEls[k].textContent='—';posTimestamp.textContent='';setMoving(false);}}
-async function toggleConnection(){if(isConnected)await disconnect();else await connect()}
-async function connect(){try{if(!('serial' in navigator)){log('Web Serial not supported — use Chrome or Edge','err');return}port=await navigator.serial.requestPort();await port.open({baudRate:115200});const d=new TextDecoderStream();readableStreamClosed=port.readable.pipeTo(d.writable);reader=d.readable.getReader();const e=new TextEncoderStream();writableStreamClosed=e.readable.pipeTo(port.writable);writer=e.writable.getWriter();setConnected(true,'Connected · 115200');log('Port opened','sys');readLoop()}catch(e){log('Connection failed: '+e.message,'err');setConnected(false)}}
-async function disconnect(){try{if(reader){await reader.cancel();await readableStreamClosed.catch(()=>{});reader=null}if(writer){await writer.close();await writableStreamClosed.catch(()=>{});writer=null}if(port){await port.close();port=null}setConnected(false);log('Disconnected','sys')}catch(e){log('Disconnect error: '+e.message,'err');setConnected(false)}}
-let lineBuffer='';
-async function readLoop(){try{while(true){const{value,done}=await reader.read();if(done)break;if(value){lineBuffer+=value;let lines=lineBuffer.split('\n');lineBuffer=lines.pop();for(const line of lines){const t=line.replace(/\r/g,'').trim();if(t.length>0)log(t,'rx')}}}}catch(e){if(isConnected){log('Read error: '+e.message,'err');setConnected(false)}}}
-async function sendString(s){if(!isConnected||!writer){log('Not connected','err');return}try{await writer.write(s+'\n');log(s,'tx')}catch(e){log('Send error: '+e.message,'err')}}
-function sendCmd(c){sendString(c)}
-function sendAxis(p,id){const v=document.getElementById(id).value;if(v===''||v===null){log('Enter a value for '+p,'err');return}sendString(p+v)}
-function handleAxisEnter(event,p,id){if(event.key==='Enter')sendAxis(p,id);}
-function sendRaw(){const i=document.getElementById('rawCmd');const c=i.value.trim();if(!c.length)return;sendString(c);i.value=''}
-// --- Hold-to-repeat jog buttons ---
-let jogInterval=null,jogTimeout=null;
-function jogStart(cmd){sendCmd(cmd);jogTimeout=setTimeout(()=>{jogInterval=setInterval(()=>sendCmd(cmd),120);},300);}
-function jogStop(){clearTimeout(jogTimeout);clearInterval(jogInterval);jogTimeout=null;jogInterval=null;}
-document.querySelectorAll('.jog-btn[data-cmd]').forEach(btn=>{
-  const cmd=btn.getAttribute('data-cmd');
-  btn.addEventListener('mousedown',e=>{e.preventDefault();jogStart(cmd);});
-  btn.addEventListener('mouseup',jogStop);
-  btn.addEventListener('mouseleave',jogStop);
-  btn.addEventListener('touchstart',e=>{e.preventDefault();jogStart(cmd);},{passive:false});
-  btn.addEventListener('touchend',jogStop);
-  btn.addEventListener('touchcancel',jogStop);
-});
-window.addEventListener('beforeunload',()=>{if(isConnected)disconnect()});
-</script>
-</body>
-</html>
+function setJogStep(sz){sendCmd('STEP'+sz);document.querySelectorAll('.step-btn').forEach(b=>{b.classList.toggle('active',parseFloat(b.dataset.step)===sz);});}
+func
