@@ -212,11 +212,11 @@ const posEls={X:document.getElementById('posX'),Y:document.getElementById('posY'
 const posItems={X:document.getElementById('posItemX'),Y:document.getElementById('posItemY'),ZA:document.getElementById('posItemZA'),ZB:document.getElementById('posItemZB'),E0:document.getElementById('posItemE0'),E1:document.getElementById('posItemE1'),E2:document.getElementById('posItemE2'),E3:document.getElementById('posItemE3'),Stagger:document.getElementById('posItemStagger'),Gap:document.getElementById('posItemGap'),Decalage:document.getElementById('posItemDecalage')};
 const posTimestamp=document.getElementById('posTimestamp');
 function setMoving(m){motorsMoving=m;movingPill.className='moving-pill'+(m?' active':'');if(m)zeroBtnMain.classList.add('locked');else zeroBtnMain.classList.remove('locked');}
-const STAGGER_OFFSET=-230;const GAP_OFFSET=75;
+const STAGGER_OFFSET=230;const GAP_OFFSET=75;
 let _lastX=NaN,_lastY=NaN,_lastZA=NaN,_lastZB=NaN;
 function flashUpdate(key){if(posItems[key]){posItems[key].classList.add('updated');setTimeout(()=>posItems[key].classList.remove('updated'),600);}}
 function parsePosLine(t){if(!t.startsWith('POS:'))return false;const data=t.substring(4);const pairs=data.split(',');for(const pair of pairs){const eq=pair.indexOf('=');if(eq<0)continue;const key=pair.substring(0,eq).trim();const val=pair.substring(eq+1).trim();const n=parseFloat(val);if(key==='X')_lastX=n;else if(key==='Y')_lastY=n;else if(key==='ZA')_lastZA=n;else if(key==='ZB')_lastZB=n;if(posEls[key]){posEls[key].textContent=isNaN(n)?val:n.toFixed(2);flashUpdate(key);}}
-if(!isNaN(_lastX)){posEls['Stagger'].textContent=(_lastX+STAGGER_OFFSET).toFixed(2);flashUpdate('Stagger');}
+if(!isNaN(_lastX)){posEls['Stagger'].textContent=(STAGGER_OFFSET-_lastX).toFixed(2);flashUpdate('Stagger');}
 if(!isNaN(_lastY)){posEls['Gap'].textContent=(_lastY+GAP_OFFSET).toFixed(2);flashUpdate('Gap');}
 if(!isNaN(_lastZA)&&!isNaN(_lastZB)){posEls['Decalage'].textContent=(_lastZB-_lastZA).toFixed(2);flashUpdate('Decalage');}
 const ts=new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});posTimestamp.textContent=ts;return true;}
