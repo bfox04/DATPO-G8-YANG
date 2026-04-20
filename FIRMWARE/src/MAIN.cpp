@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <AccelStepper.h>
+#include <SPI.h>
 
 // --- MOTOR DEFINITIONS ---
 
@@ -57,19 +58,32 @@
 #define EB2plus     PG12
 #define EA2plus     PG13
 
-//E3 — Y front right (M5)
-#define EB3plus     PG14
-#define EA3plus     PG15
+//E5 — Y Right Far (M5)
+#define EB5plus     PG14
+#define EA5plus     PG15
+
+// --- SPI ABSOLUTE ENCODER DEFINITIONS (AMT252B, 12-bit) ---
+// E6 — AoA Bot (M6), E7 — AoA Top (M7), shared SPI3 bus
+#define E6_CS_PIN   PA15
+#define E7_CS_PIN   PC0
+#define SPI_ENC_MISO  PB4
+#define SPI_ENC_MOSI  PB5
+#define SPI_ENC_SCLK  PB3
+SPISettings spiEncSettings(500000, MSBFIRST, SPI_MODE0);
+float e6Degrees = 0.0;   bool e6Valid = false;
+float e7Degrees = 0.0;   bool e7Valid = false;
+const unsigned long SPI_ENC_POLL_MS = 100;
+unsigned long spiEncLastPoll = 0;
 
 // --- FAN DEFINITIONS ---
-#define FAN0_PIN    PA8  
+#define FAN0_PIN    PA8
 bool fanOn = true;
 
 const float PULSES_PER_REV = 2000.0; 
 volatile long encoder0Ticks = 0;
 volatile long encoder1Ticks = 0;
 volatile long encoder2Ticks = 0;
-volatile long encoder3Ticks = 0;
+volatile long encoder5Ticks = 0;
 
 // --- X ENCODER SYNC ALARM ---
 const float X_SYNC_THRESHOLD_MM = 5.0;
@@ -132,8 +146,43 @@ void handleEncoder1() {
 void handleEncoder2() {
     if (digitalRead(EA2plus) == digitalRead(EB2plus)) encoder2Ticks++; else encoder2Ticks--;
 }
-void handleEncoder3() {
-    if (digitalRead(EA3plus) == digitalRead(EB3plus)) encoder3Ticks++; else encoder3Ticks--;
+void handleEncoder5() {
+    if (digitalRead(EA5plus) == digitalRead(EB5plus)) encoder5Ticks++; else encoder5Ticks--;
+}
+
+// --- SPI ENCODER: read raw 16-bit from AMT252B ---
+uint16_t readSpiEncoder(uint8_t csPin) {
+    SPI.beginTransaction(spiEncSettings);
+    digitalWrite(csPin, LOW);
+    delayMicroseconds(10);
+    uint8_t msb = SPI.transfer(0x00);
+    delayMicroseconds(3);
+    uint8_t lsb = SPI.transfer(0x00);
+    digitalWrite(csPin, HIGH);
+    SPI.endTransaction();
+    return ((uint16_t)msb << 8) | lsb;
+}
+
+// --- SPI ENCODER: parity check per AMT25 datasheet ---
+bool verifySpiParity(uint16_t msg) {
+    bool p1 = !!(msg & 0x8000);
+    bool p0 = !!(msg & 0x4000);
+    bool oddXOR  = !!(msg & 0x0002) ^ !!(msg & 0x0008) ^ !!(msg & 0x0020) ^
+                   !!(msg & 0x0080) ^ !!(msg & 0x0200) ^ !!(msg & 0x0800) ^ !!(msg & 0x2000);
+    bool evenXOR = !!(msg & 0x0001) ^ !!(msg & 0x0004) ^ !!(msg & 0x0010) ^
+                   !!(msg & 0x0040) ^ !!(msg & 0x0100) ^ !!(msg & 0x0400) ^ !!(msg & 0x1000);
+    return (p1 != oddXOR) && (p0 != evenXOR);
+}
+
+// --- SPI ENCODER: poll and store latest readings ---
+void pollSpiEncoders() {
+    uint16_t raw6 = readSpiEncoder(E6_CS_PIN);
+    e6Valid = verifySpiParity(raw6);
+    if (e6Valid) { e6Degrees = ((raw6 & 0x3FFF) >> 2) * 360.0f / 4096.0f; }
+
+    uint16_t raw7 = readSpiEncoder(E7_CS_PIN);
+    e7Valid = verifySpiParity(raw7);
+    if (e7Valid) { e7Degrees = ((raw7 & 0x3FFF) >> 2) * 360.0f / 4096.0f; }
 }
 
 void sendResponse(const String& msg, InputSource source) {
@@ -169,7 +218,7 @@ bool anyMotorMoving() {
 }
 
 // --- HELPER: send machine-readable position line for GUI ---
-// Format: POS:X=12.50,Y=6.25,ZA=15.00,ZB=-3.00,E0=12.48,E1=12.52,E2=6.20,E3=6.22
+// Format: POS:X=12.50,Y=6.25,ZA=15.00,ZB=-3.00,E0=12.48,E1=12.52,E2=6.20,E5=6.22,E6=15.30,E7=-3.10
 void sendPositionUpdate(InputSource source) {
     float xMM  = stepsToMM_X(steppers[0].currentPosition());
     float yMM  = stepsToMM_Y(steppers[2].currentPosition());
@@ -178,7 +227,7 @@ void sendPositionUpdate(InputSource source) {
     float e0mm = encoderMM_X(encoder0Ticks);
     float e1mm = encoderMM_X(encoder1Ticks);
     float e2mm = encoderMM_Y(encoder2Ticks);
-    float e3mm = encoderMM_Y(encoder3Ticks);
+    float e5mm = encoderMM_Y(encoder5Ticks);
 
     String pos = "POS:X=" + String(xMM, 2)
             + ",Y=" + String(yMM, 2)
@@ -187,7 +236,9 @@ void sendPositionUpdate(InputSource source) {
             + ",E0=" + String(e0mm, 2)
             + ",E1=" + String(e1mm, 2)
             + ",E2=" + String(e2mm, 2)
-            + ",E3=" + String(e3mm, 2);
+            + ",E5=" + String(e5mm, 2)
+            + ",E6=" + String(e6Degrees, 2)
+            + ",E7=" + String(e7Degrees, 2);
     sendResponse(pos, source);
 }
 
@@ -253,9 +304,11 @@ void processCommand(String input, InputSource source) {
         float e0mm = encoderMM_X(encoder0Ticks);
         float e1mm = encoderMM_X(encoder1Ticks);
         float e2mm = encoderMM_Y(encoder2Ticks);
-        float e3mm = encoderMM_Y(encoder3Ticks);
+        float e5mm = encoderMM_Y(encoder5Ticks);
         sendResponse("Encoders: E0=" + String(e0mm, 2) + "mm  E1=" + String(e1mm, 2)
-                    + "mm  E2=" + String(e2mm, 2) + "mm  E3=" + String(e3mm, 2) + "mm", source);
+                    + "mm  E2=" + String(e2mm, 2) + "mm  E5=" + String(e5mm, 2) + "mm", source);
+        sendResponse("SPI Enc:  E6=" + String(e6Degrees, 2) + "deg" + (e6Valid ? "" : " [PARITY ERR]")
+                    + "  E7=" + String(e7Degrees, 2) + "deg" + (e7Valid ? "" : " [PARITY ERR]"), source);
 
         if (zeroingMode) sendResponse("[JOG & ZERO MODE ACTIVE]", source);
         if (syncAlarm)   sendResponse("[SYNC ALARM ACTIVE]", source);
@@ -354,7 +407,7 @@ void processCommand(String input, InputSource source) {
             encoder0Ticks = 0;
             encoder1Ticks = 0;
             encoder2Ticks = 0;
-            encoder3Ticks = 0;
+            encoder5Ticks = 0;
             sendResponse(">> Zero point SET — all positions reset to 0", source);
             sendPositionUpdate(source);
             return;
@@ -505,9 +558,19 @@ void setup() {
     pinMode(EB2plus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EA2plus), handleEncoder2, CHANGE);
 
-    pinMode(EA3plus, INPUT_PULLUP);
-    pinMode(EB3plus, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(EA3plus), handleEncoder3, CHANGE);
+    pinMode(EA5plus, INPUT_PULLUP);
+    pinMode(EB5plus, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(EA5plus), handleEncoder5, CHANGE);
+
+    // --- SPI encoders (E6 AoA Bot, E7 AoA Top) ---
+    pinMode(E6_CS_PIN, OUTPUT); digitalWrite(E6_CS_PIN, HIGH);
+    pinMode(E7_CS_PIN, OUTPUT); digitalWrite(E7_CS_PIN, HIGH);
+    SPI.setMISO(SPI_ENC_MISO);
+    SPI.setMOSI(SPI_ENC_MOSI);
+    SPI.setSCLK(SPI_ENC_SCLK);
+    SPI.begin();
+    delay(10);  // AMT252B startup: 5ms typ
+    pollSpiEncoders();
 
     delay(500);
     sendResponse("--- System Ready ---", SOURCE_NONE);
@@ -522,6 +585,13 @@ void loop() {
     if (Serial1.available() > 0) {
         lastSource = SOURCE_BT;
         processCommand(Serial1.readStringUntil('\n'), SOURCE_BT);
+    }
+
+    // --- Poll SPI encoders E6 + E7 every 100ms ---
+    unsigned long now = millis();
+    if (now - spiEncLastPoll >= SPI_ENC_POLL_MS) {
+        spiEncLastPoll = now;
+        pollSpiEncoders();
     }
 
     bool moving = false;
@@ -560,8 +630,8 @@ void loop() {
                     || (steppers[4].distanceToGo() != 0) || (steppers[5].distanceToGo() != 0);
         if (yMoving && !zeroingMode && !syncAlarm) {
             float e2mm = encoderMM_Y(encoder2Ticks);
-            float e3mm = encoderMM_Y(encoder3Ticks);
-            float diff = abs(e2mm - e3mm);
+            float e5mm = encoderMM_Y(encoder5Ticks);
+            float diff = abs(e2mm - e5mm);
 
             if (diff > Y_SYNC_THRESHOLD_MM) {
                 for (int i = 0; i < numMotors; i++) {
@@ -570,7 +640,7 @@ void loop() {
                 }
                 syncAlarm = true;
                 alarmSource = "Y";
-                sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E3=" + String(e3mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
+                sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E5=" + String(e5mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
                 sendPositionUpdate(lastSource);
                 // Auto-enter jog & zero mode for realignment
                 syncAlarm = false;  // clear alarm so jog mode works
