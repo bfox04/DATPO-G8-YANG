@@ -182,13 +182,12 @@ void sendPositionUpdate(InputSource source) {
             + ",E0=" + String(e0mm, 2)
             + ",E1=" + String(e1mm, 2)
             + ",E2=" + String(e2mm, 2)
-            + ",E3=" + String(e3mm, 2);
+            + ",E5=" + String(e3mm, 2);
     sendResponse(pos, source);
 }
 
 // motor pos as formatted string
 String motorPosStr(int mNum) {
-    long pos = steppers[mNum].currentPosition() + (steppers[mNum].distanceToGo() == 0 ? 0 : steppers[mNum].distanceToGo());
     // use target since move() is relative
     long target = steppers[mNum].targetPosition();
     if (mNum <= 1) return String(stepsToMM_X(target), 2) + "mm";
@@ -250,7 +249,7 @@ void processCommand(String input, InputSource source) {
         float e2mm = encoderMM_Y(encoder2Ticks);
         float e3mm = encoderMM_Y(encoder3Ticks);
         sendResponse("Encoders: E0=" + String(e0mm, 2) + "mm  E1=" + String(e1mm, 2)
-                    + "mm  E2=" + String(e2mm, 2) + "mm  E3=" + String(e3mm, 2) + "mm", source);
+                    + "mm  E2=" + String(e2mm, 2) + "mm  E5=" + String(e3mm, 2) + "mm", source);
 
         if (zeroingMode) sendResponse("[JOG & ZERO MODE ACTIVE]", source);
         if (syncAlarm)   sendResponse("[SYNC ALARM ACTIVE]", source);
@@ -564,7 +563,7 @@ void loop() {
                 }
                 syncAlarm = true;
                 alarmSource = "Y";
-                sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E3=" + String(e3mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
+                sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E5=" + String(e3mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
                 sendPositionUpdate(lastSource);
                 // drop into jog mode for realignment
                 syncAlarm = false;  // clear alarm so jog mode works
