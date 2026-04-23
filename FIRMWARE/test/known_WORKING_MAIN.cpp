@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <AccelStepper.h>
 
-// motor pin defs
+// --- MOTOR DEFINITIONS ---
 
 //m0
 #define ENABLE_PIN0 PF14
@@ -43,7 +43,7 @@
 #define STEP_PIN7   PE6
 #define DIR_PIN7    PA14
 
-// encoder pin defs
+// --- ENCODER DEFINITIONS ---
 
 //E0 — X left (M0)
 #define EB0plus     PG6
@@ -61,23 +61,24 @@
 #define EB3plus     PG14
 #define EA3plus     PG15
 
-// fan
-#define FAN0_PIN    PA8
+// --- FAN DEFINITIONS ---
+#define FAN0_PIN    PA8  
 bool fanOn = true;
 
-const float PULSES_PER_REV = 2000.0;
+const float PULSES_PER_REV = 2000.0; 
 volatile long encoder0Ticks = 0;
 volatile long encoder1Ticks = 0;
 volatile long encoder2Ticks = 0;
 volatile long encoder3Ticks = 0;
 
-// sync alarm thresholds
+// --- X ENCODER SYNC ALARM ---
 const float X_SYNC_THRESHOLD_MM = 5.0;
+// --- Y ENCODER SYNC ALARM ---
 const float Y_SYNC_THRESHOLD_MM = 5.0;
 bool syncAlarm = false;
-String alarmSource = "";  // which axis tripped: "X" or "Y"
+String alarmSource = "";  // "X" or "Y" — which axis triggered
 
-// motion config
+// --- MOTION SETTINGS ---
 const int MICROSTEP_SETTING = 8;
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
 const float X_PITCH = 5.0;
@@ -85,21 +86,25 @@ const float Y_PITCH = 2.0;
 const float ZA_GEAR_RATIO = 5.197539843600339;
 const float ZB_GEAR_RATIO = 5.197539843600339;
 
-// home angles — physical stop position on power-up, 0.0 if no hard stop
+// --- Z HOME ANGLES ---
+// Set these to the angle (in degrees) where the physical stop rests.
+// On power-up, the firmware assumes the airfoils are at this angle.
+// Set to 0.0 if no physical stop is used.
 const float ZA_HOME_ANGLE = 0.0;  // TODO: measure and set
 const float ZB_HOME_ANGLE = 0.0;  // TODO: measure and set
 
-// jog/zero mode state
+// --- ZEROING MODE ---
 bool zeroingMode = false;
-float jogStepMM  = 0.25;  // set at runtime via STEP command
-float jogStepDeg = 0.25;
+// Active jog step size — changed at runtime via STEP command
+float jogStepMM  = 0.25;  // mm per jog press (X, Y, YL, YR)
+float jogStepDeg = 0.25;  // degrees per jog press (ZA, ZB)
 
 long getJogStepsX()  { return max(1L, lround((jogStepMM  / X_PITCH)  * STEPS_PER_REV)); }
 long getJogStepsY()  { return max(1L, lround((jogStepMM  / Y_PITCH)  * STEPS_PER_REV)); }
 long getJogStepsZA() { return max(1L, lround((jogStepDeg * ZA_GEAR_RATIO / 360.0) * STEPS_PER_REV)); }
 long getJogStepsZB() { return max(1L, lround((jogStepDeg * ZB_GEAR_RATIO / 360.0) * STEPS_PER_REV)); }
 
-// steppers
+// --- ACCELSTEPPER OBJECTS ---
 AccelStepper steppers[] = {
     AccelStepper(AccelStepper::DRIVER, STEP_PIN0, DIR_PIN0),
     AccelStepper(AccelStepper::DRIVER, STEP_PIN1, DIR_PIN1),
@@ -117,7 +122,7 @@ int enPins[] = {ENABLE_PIN0, ENABLE_PIN1, ENABLE_PIN2, ENABLE_PIN3, ENABLE_PIN4,
 enum InputSource { SOURCE_NONE, SOURCE_USB, SOURCE_BT };
 InputSource lastSource = SOURCE_NONE;
 
-// encoder ISRs
+// --- ISRs ---
 void handleEncoder0() {
     if (digitalRead(EA0plus) == digitalRead(EB0plus)) encoder0Ticks++; else encoder0Ticks--;
 }
@@ -136,7 +141,7 @@ void sendResponse(const String& msg, InputSource source) {
     if (source == SOURCE_BT || source == SOURCE_NONE) Serial1.println(msg);
 }
 
-// encoder ticks → mm
+// --- HELPER: encoder ticks to mm ---
 float encoderMM_X(volatile long &ticks) {
     return (static_cast<float>(ticks) / PULSES_PER_REV) * X_PITCH;
 }
@@ -144,7 +149,7 @@ float encoderMM_Y(volatile long &ticks) {
     return (static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH;
 }
 
-// steps → real units
+// --- HELPER: steps to real units ---
 float stepsToMM_X(long steps) {
     return (static_cast<float>(steps) / STEPS_PER_REV) * X_PITCH;
 }
@@ -155,7 +160,7 @@ float stepsToDeg_Z(long steps, float gearRatio) {
     return (static_cast<float>(steps) / STEPS_PER_REV) * 360.0 / gearRatio;
 }
 
-// any motor still running?
+// --- HELPER: check if any motor is actively moving ---
 bool anyMotorMoving() {
     for (int i = 0; i < numMotors; i++) {
         if (steppers[i].distanceToGo() != 0) return true;
@@ -163,7 +168,7 @@ bool anyMotorMoving() {
     return false;
 }
 
-// send POS: line to GUI
+// --- HELPER: send machine-readable position line for GUI ---
 // Format: POS:X=12.50,Y=6.25,ZA=15.00,ZB=-3.00,E0=12.48,E1=12.52,E2=6.20,E3=6.22
 void sendPositionUpdate(InputSource source) {
     float xMM  = stepsToMM_X(steppers[0].currentPosition());
@@ -186,10 +191,10 @@ void sendPositionUpdate(InputSource source) {
     sendResponse(pos, source);
 }
 
-// motor pos as formatted string
+// --- HELPER: get motor position in real units as string ---
 String motorPosStr(int mNum) {
     long pos = steppers[mNum].currentPosition() + (steppers[mNum].distanceToGo() == 0 ? 0 : steppers[mNum].distanceToGo());
-    // use target since move() is relative
+    // Use target position (current + remaining) since move() is relative
     long target = steppers[mNum].targetPosition();
     if (mNum <= 1) return String(stepsToMM_X(target), 2) + "mm";
     else if (mNum <= 5) return String(stepsToMM_Y(target), 2) + "mm";
@@ -200,7 +205,7 @@ void processCommand(String input, InputSource source) {
     input.trim();
     input.toUpperCase();
 
-    // always available
+    // --- Commands available in ANY mode ---
     if (input == "ESTOP") {
         for(int i = 0; i < numMotors; i++) {
             steppers[i].stop();
@@ -228,7 +233,7 @@ void processCommand(String input, InputSource source) {
         return;
     }
 
-    // human-readable positions + POS: line for GUI
+    // --- POSITIONS: human-readable real units + machine-readable POS line ---
     if (input == "POSITIONS") {
         float xMM   = stepsToMM_X(steppers[0].currentPosition());
         float yMM   = stepsToMM_Y(steppers[2].currentPosition());
@@ -238,7 +243,7 @@ void processCommand(String input, InputSource source) {
         sendResponse("Positions: X=" + String(xMM, 2) + "mm  Y=" + String(yMM, 2)
                     + "mm  AoA Bot=" + String(zaDeg, 2) + "deg  AoA Top=" + String(zbDeg, 2) + "deg", source);
 
-        // raw steps
+        // Raw steps for debugging
         String raw = "Raw steps: ";
         for(int i = 0; i < numMotors; i++) {
             raw += "M" + String(i) + "=" + String(steppers[i].currentPosition()) + " ";
@@ -255,11 +260,12 @@ void processCommand(String input, InputSource source) {
         if (zeroingMode) sendResponse("[JOG & ZERO MODE ACTIVE]", source);
         if (syncAlarm)   sendResponse("[SYNC ALARM ACTIVE]", source);
 
+        // Machine-readable line for GUI
         sendPositionUpdate(source);
         return;
     }
 
-    // enter jog/zero mode
+    // --- ENTER JOG & ZERO MODE (available in any state) ---
     if (input == "ZERO" && !zeroingMode) {
         zeroingMode = true;
         if (syncAlarm) syncAlarm = false;
@@ -272,9 +278,9 @@ void processCommand(String input, InputSource source) {
         return;
     }
 
-    // jog/zero mode commands
+    // --- ZEROING MODE ---
     if (zeroingMode) {
-        // individual motor jogs: M0+ M0- M1+ M1- ... M7+ M7-
+        // Jog individual motors: M0+ M0- M1+ M1- ... M7+ M7-
         if (input.length() >= 3 && input.charAt(0) == 'M') {
             int mNum = input.substring(1, input.length() - 1).toInt();
             char dir = input.charAt(input.length() - 1);
@@ -289,7 +295,7 @@ void processCommand(String input, InputSource source) {
                 return;
             }
         }
-        // grouped axis jogs: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB-
+        // Jog groups: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (ZA=AoA Bot, ZB=AoA Top)
         if (input == "X+" || input == "X-") {
             long delta = (input.charAt(1) == '+') ? getJogStepsX() : -getJogStepsX();
             steppers[0].move(delta);
@@ -329,9 +335,9 @@ void processCommand(String input, InputSource source) {
             sendResponse(">> Jog AoA Top " + String(input.charAt(2)) + " → " + motorPosStr(7), source);
             return;
         }
-        // set jog step size
+        // STEP: set active jog increment
         if (input.startsWith("STEP")) {
-            String szStr = input.substring(4);  // string compare avoids float precision issues
+            String szStr = input.substring(4);  // compare as string to avoid float precision issues
             float sz = szStr.toFloat();
             if (szStr == "0.1" || szStr == "0.25" || szStr == "0.5" || szStr == "1.0" || szStr == "1" || szStr == "2.0" || szStr == "2" || szStr == "3.0" || szStr == "3") {
                 jogStepMM  = sz;
@@ -342,7 +348,7 @@ void processCommand(String input, InputSource source) {
             }
             return;
         }
-        // save current pos as zero
+        // SET: save current positions as zero
         if (input == "SET") {
             for (int i = 0; i < numMotors; i++) steppers[i].setCurrentPosition(0);
             encoder0Ticks = 0;
@@ -353,7 +359,7 @@ void processCommand(String input, InputSource source) {
             sendPositionUpdate(source);
             return;
         }
-        // leave without saving
+        // EXIT: leave zeroing mode without saving
         if (input == "EXIT") {
             zeroingMode = false;
             sendResponse(">> Exited jog & zero mode", source);
@@ -377,7 +383,7 @@ void processCommand(String input, InputSource source) {
         return;
     }
 
-    // normal mode
+    // --- NORMAL MODE ---
     if (input == "COMMANDS") {
         sendResponse("--- Airfoil Group Controller ---", source);
         sendResponse("Commands: X[mm], Y[mm], ZA[deg](AoA Bot), ZB[deg](AoA Top), HOME, POSITIONS, COMMANDS, FAN, ESTOP, ZERO, RESUME", source);
@@ -446,7 +452,7 @@ void processCommand(String input, InputSource source) {
     }
 
     if (valid) {
-        // warn if axis still moving
+        // --- Change 5: warn if motors on this axis are still moving ---
         bool axisBusy = false;
         for (int i = startMotor; i <= endMotor; i++) {
             if (steppers[i].distanceToGo() != 0) { axisBusy = true; break; }
@@ -467,24 +473,24 @@ void processCommand(String input, InputSource source) {
 
 void setup() {
     Serial.begin(115200);
-    Serial1.begin(115200);
+    Serial1.begin(115200); 
 
     sendResponse("Startup in", SOURCE_NONE);
-    // startup countdown
+    // Countdown before starting
     for (int i = 5; i >= 0; i--) {
         sendResponse(String(i), SOURCE_NONE);
         delay(1000);
     }
 
     pinMode(FAN0_PIN, OUTPUT);
-    digitalWrite(FAN0_PIN, HIGH);
+    digitalWrite(FAN0_PIN, HIGH); 
 
     for(int i = 0; i < numMotors; i++) {
         pinMode(enPins[i], OUTPUT);
-        digitalWrite(enPins[i], LOW);
+        digitalWrite(enPins[i], LOW); 
 
-        steppers[i].setMaxSpeed(5000);
-        steppers[i].setAcceleration(750);
+        steppers[i].setMaxSpeed(5000);   
+        steppers[i].setAcceleration(750); 
     }
 
     pinMode(EA0plus, INPUT_PULLUP);
@@ -512,7 +518,7 @@ void loop() {
         lastSource = SOURCE_USB;
         processCommand(Serial.readStringUntil('\n'), SOURCE_USB);
     }
-
+    
     if (Serial1.available() > 0) {
         lastSource = SOURCE_BT;
         processCommand(Serial1.readStringUntil('\n'), SOURCE_BT);
@@ -526,7 +532,7 @@ void loop() {
             if (steppers[i].distanceToGo() != 0) moving = true;
         }
 
-        // x sync check (skipped in jog mode)
+        // --- X encoder sync check (only while X motors are moving, NOT in zeroing mode) ---
         bool xMoving = (steppers[0].distanceToGo() != 0) || (steppers[1].distanceToGo() != 0);
         if (xMoving && !zeroingMode) {
             float e0mm = encoderMM_X(encoder0Ticks);
@@ -542,14 +548,14 @@ void loop() {
                 alarmSource = "X";
                 sendResponse("!!! SYNC ALARM X — E0=" + String(e0mm, 2) + "mm E1=" + String(e1mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
                 sendPositionUpdate(lastSource);
-                // drop into jog mode for realignment
+                // Auto-enter jog & zero mode for realignment
                 syncAlarm = false;  // clear alarm so jog mode works
                 zeroingMode = true;
                 sendResponse(">> Entering JOG & ZERO MODE — realign motors, then EXIT to resume", lastSource);
             }
         }
 
-        // y sync check (skipped in jog mode)
+        // --- Y encoder sync check (only while Y motors are moving, NOT in zeroing mode) ---
         bool yMoving = (steppers[2].distanceToGo() != 0) || (steppers[3].distanceToGo() != 0)
                     || (steppers[4].distanceToGo() != 0) || (steppers[5].distanceToGo() != 0);
         if (yMoving && !zeroingMode && !syncAlarm) {
@@ -566,7 +572,7 @@ void loop() {
                 alarmSource = "Y";
                 sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E3=" + String(e3mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
                 sendPositionUpdate(lastSource);
-                // drop into jog mode for realignment
+                // Auto-enter jog & zero mode for realignment
                 syncAlarm = false;  // clear alarm so jog mode works
                 zeroingMode = true;
                 sendResponse(">> Entering JOG & ZERO MODE — realign motors, then EXIT to resume", lastSource);
@@ -576,7 +582,8 @@ void loop() {
         moving = false;
     }
 
-    // auto-send pos update on motion complete (skip in jog mode)
+    // --- Change 4: suppress "Motion Complete" in zeroing mode ---
+    // --- Change 7: auto-send position update on motion complete ---
     static bool wasMoving = false;
     if (!moving && wasMoving) {
         if (!zeroingMode) {
