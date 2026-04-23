@@ -58,41 +58,49 @@
 #define EB2plus     PG12
 #define EA2plus     PG13
 
-//E5 — Y Right Far (M5)
-#define EB5plus     PG14
-#define EA5plus     PG15
-
-// --- SPI ABSOLUTE ENCODER DEFINITIONS (AMT252B, 12-bit) ---
-// E6 — AoA Bot (M6), E7 — AoA Top (M7), shared SPI3 bus
-#define E6_CS_PIN   PA15
-#define E7_CS_PIN   PC0
-#define SPI_ENC_MISO  PB4
-#define SPI_ENC_MOSI  PB5
-#define SPI_ENC_SCLK  PB3
-SPISettings spiEncSettings(500000, MSBFIRST, SPI_MODE0);
-float e6Degrees = 0.0;   bool e6Valid = false;
-float e7Degrees = 0.0;   bool e7Valid = false;
-const unsigned long SPI_ENC_POLL_MS = 100;
-unsigned long spiEncLastPoll = 0;
+//E3 — Y front right (M5)
+#define EB3plus     PG14
+#define EA3plus     PG15
 
 // --- FAN DEFINITIONS ---
 #define FAN0_PIN    PA8
 bool fanOn = true;
 
-const float PULSES_PER_REV = 2000.0; 
+// --- AMT25 SPI ABSOLUTE ENCODER DEFINITIONS ---
+#define SPI_MOSI    PB5
+#define SPI_MISO    PB4
+#define SPI_SCLK    PB3
+
+#define PIN_CS_E6   PE10
+#define PIN_CS_E7   PE15
+
+// --- AMT25 state ---
+float    e6Degrees      = 0.0;
+float    e7Degrees      = 0.0;
+uint16_t e6RawPos       = 0;
+uint16_t e7RawPos       = 0;
+uint16_t e6FullWord     = 0;
+uint16_t e7FullWord     = 0;
+bool     e6Valid        = false;
+bool     e7Valid        = false;
+bool     e6Ever         = false;
+bool     e7Ever         = false;
+uint32_t e6Reads        = 0;
+uint32_t e7Reads        = 0;
+uint32_t e6Fails        = 0;
+uint32_t e7Fails        = 0;
+
+const float PULSES_PER_REV = 2000.0;
 volatile long encoder0Ticks = 0;
 volatile long encoder1Ticks = 0;
 volatile long encoder2Ticks = 0;
-volatile long encoder5Ticks = 0;
+volatile long encoder3Ticks = 0;
 
-// --- X ENCODER SYNC ALARM ---
 const float X_SYNC_THRESHOLD_MM = 5.0;
-// --- Y ENCODER SYNC ALARM ---
 const float Y_SYNC_THRESHOLD_MM = 5.0;
 bool syncAlarm = false;
-String alarmSource = "";  // "X" or "Y" — which axis triggered
+String alarmSource = ""; 
 
-// --- MOTION SETTINGS ---
 const int MICROSTEP_SETTING = 8;
 const long STEPS_PER_REV = 200 * MICROSTEP_SETTING;
 const float X_PITCH = 5.0;
@@ -100,25 +108,15 @@ const float Y_PITCH = 2.0;
 const float ZA_GEAR_RATIO = 5.197539843600339;
 const float ZB_GEAR_RATIO = 5.197539843600339;
 
-// --- Z HOME ANGLES ---
-// Set these to the angle (in degrees) where the physical stop rests.
-// On power-up, the firmware assumes the airfoils are at this angle.
-// Set to 0.0 if no physical stop is used.
-const float ZA_HOME_ANGLE = 0.0;  // TODO: measure and set
-const float ZB_HOME_ANGLE = 0.0;  // TODO: measure and set
-
-// --- ZEROING MODE ---
 bool zeroingMode = false;
-// Active jog step size — changed at runtime via STEP command
-float jogStepMM  = 0.25;  // mm per jog press (X, Y, YL, YR)
-float jogStepDeg = 0.25;  // degrees per jog press (ZA, ZB)
+float jogStepMM  = 0.25;
+float jogStepDeg = 0.25;
 
 long getJogStepsX()  { return max(1L, lround((jogStepMM  / X_PITCH)  * STEPS_PER_REV)); }
 long getJogStepsY()  { return max(1L, lround((jogStepMM  / Y_PITCH)  * STEPS_PER_REV)); }
 long getJogStepsZA() { return max(1L, lround((jogStepDeg * ZA_GEAR_RATIO / 360.0) * STEPS_PER_REV)); }
 long getJogStepsZB() { return max(1L, lround((jogStepDeg * ZB_GEAR_RATIO / 360.0) * STEPS_PER_REV)); }
 
-// --- ACCELSTEPPER OBJECTS ---
 AccelStepper steppers[] = {
     AccelStepper(AccelStepper::DRIVER, STEP_PIN0, DIR_PIN0),
     AccelStepper(AccelStepper::DRIVER, STEP_PIN1, DIR_PIN1),
@@ -136,80 +134,22 @@ int enPins[] = {ENABLE_PIN0, ENABLE_PIN1, ENABLE_PIN2, ENABLE_PIN3, ENABLE_PIN4,
 enum InputSource { SOURCE_NONE, SOURCE_USB, SOURCE_BT };
 InputSource lastSource = SOURCE_NONE;
 
-// --- ISRs ---
-void handleEncoder0() {
-    if (digitalRead(EA0plus) == digitalRead(EB0plus)) encoder0Ticks++; else encoder0Ticks--;
-}
-void handleEncoder1() {
-    if (digitalRead(EA1plus) == digitalRead(EB1plus)) encoder1Ticks++; else encoder1Ticks--;
-}
-void handleEncoder2() {
-    if (digitalRead(EA2plus) == digitalRead(EB2plus)) encoder2Ticks++; else encoder2Ticks--;
-}
-void handleEncoder5() {
-    if (digitalRead(EA5plus) == digitalRead(EB5plus)) encoder5Ticks++; else encoder5Ticks--;
-}
-
-// --- SPI ENCODER: read raw 16-bit from AMT252B ---
-uint16_t readSpiEncoder(uint8_t csPin) {
-    SPI.beginTransaction(spiEncSettings);
-    digitalWrite(csPin, LOW);
-    delayMicroseconds(10);
-    uint8_t msb = SPI.transfer(0x00);
-    delayMicroseconds(3);
-    uint8_t lsb = SPI.transfer(0x00);
-    digitalWrite(csPin, HIGH);
-    SPI.endTransaction();
-    return ((uint16_t)msb << 8) | lsb;
-}
-
-// --- SPI ENCODER: parity check per AMT25 datasheet ---
-bool verifySpiParity(uint16_t msg) {
-    bool p1 = !!(msg & 0x8000);
-    bool p0 = !!(msg & 0x4000);
-    bool oddXOR  = !!(msg & 0x0002) ^ !!(msg & 0x0008) ^ !!(msg & 0x0020) ^
-                   !!(msg & 0x0080) ^ !!(msg & 0x0200) ^ !!(msg & 0x0800) ^ !!(msg & 0x2000);
-    bool evenXOR = !!(msg & 0x0001) ^ !!(msg & 0x0004) ^ !!(msg & 0x0010) ^
-                   !!(msg & 0x0040) ^ !!(msg & 0x0100) ^ !!(msg & 0x0400) ^ !!(msg & 0x1000);
-    return (p1 != oddXOR) && (p0 != evenXOR);
-}
-
-// --- SPI ENCODER: poll and store latest readings ---
-void pollSpiEncoders() {
-    uint16_t raw6 = readSpiEncoder(E6_CS_PIN);
-    e6Valid = verifySpiParity(raw6);
-    if (e6Valid) { e6Degrees = ((raw6 & 0x3FFF) >> 2) * 360.0f / 4096.0f; }
-
-    uint16_t raw7 = readSpiEncoder(E7_CS_PIN);
-    e7Valid = verifySpiParity(raw7);
-    if (e7Valid) { e7Degrees = ((raw7 & 0x3FFF) >> 2) * 360.0f / 4096.0f; }
-}
+void handleEncoder0() { if (digitalRead(EA0plus) == digitalRead(EB0plus)) encoder0Ticks++; else encoder0Ticks--; }
+void handleEncoder1() { if (digitalRead(EA1plus) == digitalRead(EB1plus)) encoder1Ticks++; else encoder1Ticks--; }
+void handleEncoder2() { if (digitalRead(EA2plus) == digitalRead(EB2plus)) encoder2Ticks++; else encoder2Ticks--; }
+void handleEncoder3() { if (digitalRead(EA3plus) == digitalRead(EB3plus)) encoder3Ticks++; else encoder3Ticks--; }
 
 void sendResponse(const String& msg, InputSource source) {
     if (source == SOURCE_USB || source == SOURCE_NONE) Serial.println(msg);
     if (source == SOURCE_BT || source == SOURCE_NONE) Serial1.println(msg);
 }
 
-// --- HELPER: encoder ticks to mm ---
-float encoderMM_X(volatile long &ticks) {
-    return (static_cast<float>(ticks) / PULSES_PER_REV) * X_PITCH;
-}
-float encoderMM_Y(volatile long &ticks) {
-    return (static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH;
-}
+float encoderMM_X(volatile long &ticks) { return (static_cast<float>(ticks) / PULSES_PER_REV) * X_PITCH; }
+float encoderMM_Y(volatile long &ticks) { return (static_cast<float>(ticks) / PULSES_PER_REV) * Y_PITCH; }
+float stepsToMM_X(long steps) { return (static_cast<float>(steps) / STEPS_PER_REV) * X_PITCH; }
+float stepsToMM_Y(long steps) { return (static_cast<float>(steps) / STEPS_PER_REV) * Y_PITCH; }
+float stepsToDeg_Z(long steps, float gearRatio) { return (static_cast<float>(steps) / STEPS_PER_REV) * 360.0 / gearRatio; }
 
-// --- HELPER: steps to real units ---
-float stepsToMM_X(long steps) {
-    return (static_cast<float>(steps) / STEPS_PER_REV) * X_PITCH;
-}
-float stepsToMM_Y(long steps) {
-    return (static_cast<float>(steps) / STEPS_PER_REV) * Y_PITCH;
-}
-float stepsToDeg_Z(long steps, float gearRatio) {
-    return (static_cast<float>(steps) / STEPS_PER_REV) * 360.0 / gearRatio;
-}
-
-// --- HELPER: check if any motor is actively moving ---
 bool anyMotorMoving() {
     for (int i = 0; i < numMotors; i++) {
         if (steppers[i].distanceToGo() != 0) return true;
@@ -217,9 +157,85 @@ bool anyMotorMoving() {
     return false;
 }
 
-// --- HELPER: send machine-readable position line for GUI ---
-// Format: POS:X=12.50,Y=6.25,ZA=15.00,ZB=-3.00,E0=12.48,E1=12.52,E2=6.20,E5=6.22,E6=15.30,E7=-3.10
+// =====================================================================
+//  AMT25 SPI ENCODER FUNCTIONS (2MHz DATASHEET COMPLIANT)
+// =====================================================================
+
+// 2MHz shrinks the transaction time to ~15µs, easily fitting between PWM noise
+SPISettings amt25Settings(2000000, MSBFIRST, SPI_MODE0);
+
+bool amt25Parity(uint16_t msg) {
+    bool p1 = !!(msg & 0x8000);
+    bool p0 = !!(msg & 0x4000);
+    bool odd  = !!(msg&0x0002)^!!(msg&0x0008)^!!(msg&0x0020)^!!(msg&0x0080)^!!(msg&0x0200)^!!(msg&0x0800)^!!(msg&0x2000);
+    bool even = !!(msg&0x0001)^!!(msg&0x0004)^!!(msg&0x0010)^!!(msg&0x0040)^!!(msg&0x0100)^!!(msg&0x0400)^!!(msg&0x1000);
+    return (p1 != odd) && (p0 != even);
+}
+
+bool amt25ReadOnce(int csPin, uint16_t &word) {
+    SPI.beginTransaction(amt25Settings);
+    digitalWrite(csPin, LOW);
+    delayMicroseconds(4); // MUST be >3us per AMT datasheet
+
+    noInterrupts();
+    uint8_t msb = SPI.transfer(0x00);
+    delayMicroseconds(3); // MUST be >2.5us per AMT datasheet
+    uint8_t lsb = SPI.transfer(0x00);
+    interrupts();
+
+    digitalWrite(csPin, HIGH);
+    SPI.endTransaction();
+
+    word = ((uint16_t)msb << 8) | lsb;
+    return amt25Parity(word);
+}
+
+void pollE6() {
+    e6Reads++;
+    bool success = false;
+    
+    for (int i = 0; i < 50; i++) {
+        if (amt25ReadOnce(PIN_CS_E6, e6FullWord)) {
+            if (e6FullWord != 0xFFFF && e6FullWord != 0x0000) {
+                e6RawPos = (e6FullWord & 0x3FFF) >> 2;
+                e6Degrees = (e6RawPos * 360.0f) / 4096.0f;
+                success = true;
+                break;
+            }
+        }
+        // CRITICAL: AMT25 requires CS to be HIGH for >40us between reads.
+        // 45us satisfies the hardware and phase-shifts against PWM noise.
+        delayMicroseconds(45); 
+    }
+    
+    if (success) { e6Valid = true; } else { e6Valid = false; e6Fails++; }
+    e6Ever = true;
+}
+
+void pollE7() {
+    e7Reads++;
+    bool success = false;
+    
+    for (int i = 0; i < 50; i++) {
+        if (amt25ReadOnce(PIN_CS_E7, e7FullWord)) {
+            if (e7FullWord != 0xFFFF && e7FullWord != 0x0000) {
+                e7RawPos = (e7FullWord & 0x3FFF) >> 2;
+                e7Degrees = (e7RawPos * 360.0f) / 4096.0f;
+                success = true;
+                break;
+            }
+        }
+        delayMicroseconds(45);
+    }
+    
+    if (success) { e7Valid = true; } else { e7Valid = false; e7Fails++; }
+    e7Ever = true;
+}
+
 void sendPositionUpdate(InputSource source) {
+    pollE6();
+    pollE7();
+
     float xMM  = stepsToMM_X(steppers[0].currentPosition());
     float yMM  = stepsToMM_Y(steppers[2].currentPosition());
     float zaDeg = stepsToDeg_Z(steppers[6].currentPosition(), ZA_GEAR_RATIO);
@@ -227,7 +243,7 @@ void sendPositionUpdate(InputSource source) {
     float e0mm = encoderMM_X(encoder0Ticks);
     float e1mm = encoderMM_X(encoder1Ticks);
     float e2mm = encoderMM_Y(encoder2Ticks);
-    float e5mm = encoderMM_Y(encoder5Ticks);
+    float e5mm = encoderMM_Y(encoder3Ticks);
 
     String pos = "POS:X=" + String(xMM, 2)
             + ",Y=" + String(yMM, 2)
@@ -242,10 +258,8 @@ void sendPositionUpdate(InputSource source) {
     sendResponse(pos, source);
 }
 
-// --- HELPER: get motor position in real units as string ---
 String motorPosStr(int mNum) {
     long pos = steppers[mNum].currentPosition() + (steppers[mNum].distanceToGo() == 0 ? 0 : steppers[mNum].distanceToGo());
-    // Use target position (current + remaining) since move() is relative
     long target = steppers[mNum].targetPosition();
     if (mNum <= 1) return String(stepsToMM_X(target), 2) + "mm";
     else if (mNum <= 5) return String(stepsToMM_Y(target), 2) + "mm";
@@ -256,7 +270,6 @@ void processCommand(String input, InputSource source) {
     input.trim();
     input.toUpperCase();
 
-    // --- Commands available in ANY mode ---
     if (input == "ESTOP") {
         for(int i = 0; i < numMotors; i++) {
             steppers[i].stop();
@@ -284,7 +297,32 @@ void processCommand(String input, InputSource source) {
         return;
     }
 
-    // --- POSITIONS: human-readable real units + machine-readable POS line ---
+    if (input == "READE6" || input == "READE7" || input == "AMT") {
+        pollE6();
+        pollE7();
+        sendResponse(">> E6: " + String(e6Degrees, 2) + "deg"
+                    + (e6Valid ? " [OK]" : " [FAIL]") + " | E7: " + String(e7Degrees, 2) + "deg"
+                    + (e7Valid ? " [OK]" : " [FAIL]"), source);
+        sendPositionUpdate(source);
+        return;
+    }
+
+    if (input == "DIAG") {
+        pollE6();
+        pollE7();
+        float e6p = e6Reads ? (e6Fails*100.0f/e6Reads) : 0;
+        float e7p = e7Reads ? (e7Fails*100.0f/e7Reads) : 0;
+        sendResponse("--- DIAG ---", source);
+        sendResponse("E6: " + String(e6Degrees,2) + "deg " + (e6Valid?"OK":"FAIL")
+            + " | Reads:" + String(e6Reads) + " Fails:" + String(e6Fails)
+            + " (" + String(e6p,1) + "%) | Word:0x" + String(e6FullWord,HEX), source);
+        sendResponse("E7: " + String(e7Degrees,2) + "deg " + (e7Valid?"OK":"FAIL")
+            + " | Reads:" + String(e7Reads) + " Fails:" + String(e7Fails)
+            + " (" + String(e7p,1) + "%) | Word:0x" + String(e7FullWord,HEX), source);
+        sendResponse("---", source);
+        return;
+    }
+
     if (input == "POSITIONS") {
         float xMM   = stepsToMM_X(steppers[0].currentPosition());
         float yMM   = stepsToMM_Y(steppers[2].currentPosition());
@@ -294,31 +332,25 @@ void processCommand(String input, InputSource source) {
         sendResponse("Positions: X=" + String(xMM, 2) + "mm  Y=" + String(yMM, 2)
                     + "mm  AoA Bot=" + String(zaDeg, 2) + "deg  AoA Top=" + String(zbDeg, 2) + "deg", source);
 
-        // Raw steps for debugging
-        String raw = "Raw steps: ";
-        for(int i = 0; i < numMotors; i++) {
-            raw += "M" + String(i) + "=" + String(steppers[i].currentPosition()) + " ";
-        }
-        sendResponse(raw, source);
-
         float e0mm = encoderMM_X(encoder0Ticks);
         float e1mm = encoderMM_X(encoder1Ticks);
         float e2mm = encoderMM_Y(encoder2Ticks);
-        float e5mm = encoderMM_Y(encoder5Ticks);
-        sendResponse("Encoders: E0=" + String(e0mm, 2) + "mm  E1=" + String(e1mm, 2)
+        float e5mm = encoderMM_Y(encoder3Ticks);
+        sendResponse("Quad Encoders: E0=" + String(e0mm, 2) + "mm  E1=" + String(e1mm, 2)
                     + "mm  E2=" + String(e2mm, 2) + "mm  E5=" + String(e5mm, 2) + "mm", source);
-        sendResponse("SPI Enc:  E6=" + String(e6Degrees, 2) + "deg" + (e6Valid ? "" : " [PARITY ERR]")
-                    + "  E7=" + String(e7Degrees, 2) + "deg" + (e7Valid ? "" : " [PARITY ERR]"), source);
+
+        sendResponse("AMT25 Encoders: E6(AoA Bot)=" + String(e6Degrees, 2) + "deg"
+                    + (e6Ever ? "" : " [no read yet]")
+                    + "  E7(AoA Top)=" + String(e7Degrees, 2) + "deg"
+                    + (e7Ever ? "" : " [no read yet]"), source);
 
         if (zeroingMode) sendResponse("[JOG & ZERO MODE ACTIVE]", source);
         if (syncAlarm)   sendResponse("[SYNC ALARM ACTIVE]", source);
 
-        // Machine-readable line for GUI
         sendPositionUpdate(source);
         return;
     }
 
-    // --- ENTER JOG & ZERO MODE (available in any state) ---
     if (input == "ZERO" && !zeroingMode) {
         zeroingMode = true;
         if (syncAlarm) syncAlarm = false;
@@ -331,9 +363,7 @@ void processCommand(String input, InputSource source) {
         return;
     }
 
-    // --- ZEROING MODE ---
     if (zeroingMode) {
-        // Jog individual motors: M0+ M0- M1+ M1- ... M7+ M7-
         if (input.length() >= 3 && input.charAt(0) == 'M') {
             int mNum = input.substring(1, input.length() - 1).toInt();
             char dir = input.charAt(input.length() - 1);
@@ -348,7 +378,6 @@ void processCommand(String input, InputSource source) {
                 return;
             }
         }
-        // Jog groups: X+ X- Y+ Y- ZA+ ZA- ZB+ ZB- (ZA=AoA Bot, ZB=AoA Top)
         if (input == "X+" || input == "X-") {
             long delta = (input.charAt(1) == '+') ? getJogStepsX() : -getJogStepsX();
             steppers[0].move(delta);
@@ -388,9 +417,8 @@ void processCommand(String input, InputSource source) {
             sendResponse(">> Jog AoA Top " + String(input.charAt(2)) + " → " + motorPosStr(7), source);
             return;
         }
-        // STEP: set active jog increment
         if (input.startsWith("STEP")) {
-            String szStr = input.substring(4);  // compare as string to avoid float precision issues
+            String szStr = input.substring(4);
             float sz = szStr.toFloat();
             if (szStr == "0.1" || szStr == "0.25" || szStr == "0.5" || szStr == "1.0" || szStr == "1" || szStr == "2.0" || szStr == "2" || szStr == "3.0" || szStr == "3") {
                 jogStepMM  = sz;
@@ -401,18 +429,16 @@ void processCommand(String input, InputSource source) {
             }
             return;
         }
-        // SET: save current positions as zero
         if (input == "SET") {
             for (int i = 0; i < numMotors; i++) steppers[i].setCurrentPosition(0);
             encoder0Ticks = 0;
             encoder1Ticks = 0;
             encoder2Ticks = 0;
-            encoder5Ticks = 0;
+            encoder3Ticks = 0;
             sendResponse(">> Zero point SET — all positions reset to 0", source);
             sendPositionUpdate(source);
             return;
         }
-        // EXIT: leave zeroing mode without saving
         if (input == "EXIT") {
             zeroingMode = false;
             sendResponse(">> Exited jog & zero mode", source);
@@ -436,10 +462,10 @@ void processCommand(String input, InputSource source) {
         return;
     }
 
-    // --- NORMAL MODE ---
     if (input == "COMMANDS") {
         sendResponse("--- Airfoil Group Controller ---", source);
         sendResponse("Commands: X[mm], Y[mm], ZA[deg](AoA Bot), ZB[deg](AoA Top), HOME, POSITIONS, COMMANDS, FAN, ESTOP, ZERO, RESUME", source);
+        sendResponse("Encoders: AMT (read both E6+E7), READE6, READE7, DIAG", source);
         return;
     }
     if (input == "HOME") {
@@ -505,7 +531,6 @@ void processCommand(String input, InputSource source) {
     }
 
     if (valid) {
-        // --- Change 5: warn if motors on this axis are still moving ---
         bool axisBusy = false;
         for (int i = startMotor; i <= endMotor; i++) {
             if (steppers[i].distanceToGo() != 0) { axisBusy = true; break; }
@@ -526,24 +551,23 @@ void processCommand(String input, InputSource source) {
 
 void setup() {
     Serial.begin(115200);
-    Serial1.begin(115200); 
+    Serial1.begin(115200);
 
     sendResponse("Startup in", SOURCE_NONE);
-    // Countdown before starting
     for (int i = 5; i >= 0; i--) {
         sendResponse(String(i), SOURCE_NONE);
         delay(1000);
     }
 
     pinMode(FAN0_PIN, OUTPUT);
-    digitalWrite(FAN0_PIN, HIGH); 
+    digitalWrite(FAN0_PIN, HIGH);
 
+    // --- ALL MOTORS ENABLED ---
     for(int i = 0; i < numMotors; i++) {
         pinMode(enPins[i], OUTPUT);
-        digitalWrite(enPins[i], LOW); 
-
-        steppers[i].setMaxSpeed(5000);   
-        steppers[i].setAcceleration(750); 
+        digitalWrite(enPins[i], LOW);
+        steppers[i].setMaxSpeed(5000);
+        steppers[i].setAcceleration(750);
     }
 
     pinMode(EA0plus, INPUT_PULLUP);
@@ -558,21 +582,38 @@ void setup() {
     pinMode(EB2plus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EA2plus), handleEncoder2, CHANGE);
 
-    pinMode(EA5plus, INPUT_PULLUP);
-    pinMode(EB5plus, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(EA5plus), handleEncoder5, CHANGE);
+    pinMode(EA3plus, INPUT_PULLUP);
+    pinMode(EB3plus, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(EA3plus), handleEncoder3, CHANGE);
 
-    // --- SPI encoders (E6 AoA Bot, E7 AoA Top) ---
-    pinMode(E6_CS_PIN, OUTPUT); digitalWrite(E6_CS_PIN, HIGH);
-    pinMode(E7_CS_PIN, OUTPUT); digitalWrite(E7_CS_PIN, HIGH);
-    SPI.setMISO(SPI_ENC_MISO);
-    SPI.setMOSI(SPI_ENC_MOSI);
-    SPI.setSCLK(SPI_ENC_SCLK);
+    pinMode(PIN_CS_E6, OUTPUT);
+    digitalWrite(PIN_CS_E6, HIGH);
+    pinMode(PIN_CS_E7, OUTPUT);
+    digitalWrite(PIN_CS_E7, HIGH);
+
+#if defined(STM32F4xx)
+    pinMode(PA14, OUTPUT);
+#endif
+
+    SPI.setMISO(SPI_MISO);
+    SPI.setMOSI(SPI_MOSI);
+    SPI.setSCLK(SPI_SCLK);
     SPI.begin();
-    delay(10);  // AMT252B startup: 5ms typ
-    pollSpiEncoders();
 
-    delay(500);
+    steppers[6].moveTo(50);
+    steppers[7].moveTo(50);
+    while (steppers[6].distanceToGo() != 0 || steppers[7].distanceToGo() != 0) {
+        steppers[6].run();
+        steppers[7].run();
+    }
+    steppers[6].moveTo(0);
+    steppers[7].moveTo(0);
+    while (steppers[6].distanceToGo() != 0 || steppers[7].distanceToGo() != 0) {
+        steppers[6].run();
+        steppers[7].run();
+    }
+
+    delay(100);
     sendResponse("--- System Ready ---", SOURCE_NONE);
 }
 
@@ -581,17 +622,10 @@ void loop() {
         lastSource = SOURCE_USB;
         processCommand(Serial.readStringUntil('\n'), SOURCE_USB);
     }
-    
+
     if (Serial1.available() > 0) {
         lastSource = SOURCE_BT;
         processCommand(Serial1.readStringUntil('\n'), SOURCE_BT);
-    }
-
-    // --- Poll SPI encoders E6 + E7 every 100ms ---
-    unsigned long now = millis();
-    if (now - spiEncLastPoll >= SPI_ENC_POLL_MS) {
-        spiEncLastPoll = now;
-        pollSpiEncoders();
     }
 
     bool moving = false;
@@ -602,7 +636,6 @@ void loop() {
             if (steppers[i].distanceToGo() != 0) moving = true;
         }
 
-        // --- X encoder sync check (only while X motors are moving, NOT in zeroing mode) ---
         bool xMoving = (steppers[0].distanceToGo() != 0) || (steppers[1].distanceToGo() != 0);
         if (xMoving && !zeroingMode) {
             float e0mm = encoderMM_X(encoder0Ticks);
@@ -618,19 +651,17 @@ void loop() {
                 alarmSource = "X";
                 sendResponse("!!! SYNC ALARM X — E0=" + String(e0mm, 2) + "mm E1=" + String(e1mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
                 sendPositionUpdate(lastSource);
-                // Auto-enter jog & zero mode for realignment
-                syncAlarm = false;  // clear alarm so jog mode works
+                syncAlarm = false;
                 zeroingMode = true;
                 sendResponse(">> Entering JOG & ZERO MODE — realign motors, then EXIT to resume", lastSource);
             }
         }
 
-        // --- Y encoder sync check (only while Y motors are moving, NOT in zeroing mode) ---
         bool yMoving = (steppers[2].distanceToGo() != 0) || (steppers[3].distanceToGo() != 0)
                     || (steppers[4].distanceToGo() != 0) || (steppers[5].distanceToGo() != 0);
         if (yMoving && !zeroingMode && !syncAlarm) {
             float e2mm = encoderMM_Y(encoder2Ticks);
-            float e5mm = encoderMM_Y(encoder5Ticks);
+            float e5mm = encoderMM_Y(encoder3Ticks);
             float diff = abs(e2mm - e5mm);
 
             if (diff > Y_SYNC_THRESHOLD_MM) {
@@ -642,8 +673,7 @@ void loop() {
                 alarmSource = "Y";
                 sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E5=" + String(e5mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
                 sendPositionUpdate(lastSource);
-                // Auto-enter jog & zero mode for realignment
-                syncAlarm = false;  // clear alarm so jog mode works
+                syncAlarm = false;
                 zeroingMode = true;
                 sendResponse(">> Entering JOG & ZERO MODE — realign motors, then EXIT to resume", lastSource);
             }
@@ -652,12 +682,15 @@ void loop() {
         moving = false;
     }
 
-    // --- Change 4: suppress "Motion Complete" in zeroing mode ---
-    // --- Change 7: auto-send position update on motion complete ---
     static bool wasMoving = false;
     if (!moving && wasMoving) {
         if (!zeroingMode) {
             sendResponse("--- Motion Complete. ---", lastSource);
+            pollE6();
+            pollE7();
+            sendResponse(">> E6: " + String(e6Degrees, 2) + "deg"
+                        + (e6Valid ? " [OK]" : " [FAIL]") + " | E7: " + String(e7Degrees, 2) + "deg"
+                        + (e7Valid ? " [OK]" : " [FAIL]"), lastSource);
             sendPositionUpdate(lastSource);
         }
     }
