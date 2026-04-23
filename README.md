@@ -82,10 +82,8 @@ Built with PlatformIO (Arduino framework). Source is `FIRMWARE/src/WORKING_MAIN.
 ## TODO (Next Group)
 
 - [ ] **Integrate AMT25 absolute encoders on ZA/ZB** — the big one. Hardware and firmware were working; the blocker was EMI. Suggested approach: use shielded cable for encoder lines, route far from motor cabling, or add an external encoder interface board to put distance between the noisy motor drivers and the encoder signal path. The AMT25 uses SSI/SPI — an isolator IC between the Octopus and encoders would likely fix it. This would give true closed-loop AoA control, which is the main thing missing.
-- [ ] Measure and set physical hard-stop home angles for ZA/ZB in firmware
-- [ ] Add software travel limits as a safety net (currently relies on operator not sending out-of-range commands)
-- [ ] Y axis has 4 motors (M2–M5) but only 2 encoders — E2 and E3 cover left and right sides. Consider adding encoders on the far pair if racking becomes an issue.
-
+- [ ] Measure and set physical hard-stop home angles for ZA/ZB in firmware, automating zeroing.
+- [ ] Y axis has 4 motors (M2–M5) but only 2 encoders, there are two existing quadrature encoders left unplugged & ready to implemented.
 ---
 
 ## Repo Layout
