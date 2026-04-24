@@ -57,17 +57,17 @@
 #define EB2plus     PG12
 #define EA2plus     PG13
 
-//E3 — Y front right (M5)
-#define EB3plus     PG14
-#define EA3plus     PG15
+//E3 — Y left far, EXP1 (new)
+#define EB3plus     PE8
+#define EA3plus     PE7
 
-//E4 — M4
-#define EB4plus     PE8
-#define EA4plus     PE7
+//E4 — Y right close, EXP1 (new)
+#define EB4plus     PE9
+#define EA4plus     PE10
 
-//E5 — M5
-#define EB5plus     PE9
-#define EA5plus     PE10
+//E5 — Y right far (M5)
+#define EB5plus     PG14
+#define EA5plus     PG15
 
 // fan
 #define FAN0_PIN    PA8
