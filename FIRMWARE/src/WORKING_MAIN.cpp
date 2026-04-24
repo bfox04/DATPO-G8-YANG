@@ -61,6 +61,14 @@
 #define EB3plus     PG14
 #define EA3plus     PG15
 
+//E4 — M4
+#define EB4plus     PE8
+#define EA4plus     PE7
+
+//E5 — M5
+#define EB5plus     PE9
+#define EA5plus     PE10
+
 // fan
 #define FAN0_PIN    PA8
 bool fanOn = true;
@@ -70,6 +78,8 @@ volatile long encoder0Ticks = 0;
 volatile long encoder1Ticks = 0;
 volatile long encoder2Ticks = 0;
 volatile long encoder3Ticks = 0;
+volatile long encoder4Ticks = 0;
+volatile long encoder5Ticks = 0;
 
 // sync alarm thresholds
 const float X_SYNC_THRESHOLD_MM = 5.0;
@@ -130,6 +140,12 @@ void handleEncoder2() {
 void handleEncoder3() {
     if (digitalRead(EA3plus) == digitalRead(EB3plus)) encoder3Ticks++; else encoder3Ticks--;
 }
+void handleEncoder4() {
+    if (digitalRead(EA4plus) == digitalRead(EB4plus)) encoder4Ticks++; else encoder4Ticks--;
+}
+void handleEncoder5() {
+    if (digitalRead(EA5plus) == digitalRead(EB5plus)) encoder5Ticks++; else encoder5Ticks--;
+}
 
 void sendResponse(const String& msg, InputSource source) {
     if (source == SOURCE_USB || source == SOURCE_NONE) Serial.println(msg);
@@ -164,7 +180,7 @@ bool anyMotorMoving() {
 }
 
 // send POS: line to GUI
-// Format: POS:X=12.50,Y=6.25,ZA=15.00,ZB=-3.00,E0=12.48,E1=12.52,E2=6.20,E3=6.22
+// Format: POS:X=12.50,Y=6.25,ZA=15.00,ZB=-3.00,E0=12.48,E1=12.52,E2=6.20,E3=6.22,E4=6.21,E5=6.23
 void sendPositionUpdate(InputSource source) {
     float xMM  = stepsToMM_X(steppers[0].currentPosition());
     float yMM  = stepsToMM_Y(steppers[2].currentPosition());
@@ -174,6 +190,8 @@ void sendPositionUpdate(InputSource source) {
     float e1mm = encoderMM_X(encoder1Ticks);
     float e2mm = encoderMM_Y(encoder2Ticks);
     float e3mm = encoderMM_Y(encoder3Ticks);
+    float e4mm = encoderMM_Y(encoder4Ticks);
+    float e5mm = encoderMM_Y(encoder5Ticks);
 
     String pos = "POS:X=" + String(xMM, 2)
             + ",Y=" + String(yMM, 2)
@@ -182,7 +200,9 @@ void sendPositionUpdate(InputSource source) {
             + ",E0=" + String(e0mm, 2)
             + ",E1=" + String(e1mm, 2)
             + ",E2=" + String(e2mm, 2)
-            + ",E5=" + String(e3mm, 2);
+            + ",E3=" + String(e3mm, 2)
+            + ",E4=" + String(e4mm, 2)
+            + ",E5=" + String(e5mm, 2);
     sendResponse(pos, source);
 }
 
@@ -248,8 +268,11 @@ void processCommand(String input, InputSource source) {
         float e1mm = encoderMM_X(encoder1Ticks);
         float e2mm = encoderMM_Y(encoder2Ticks);
         float e3mm = encoderMM_Y(encoder3Ticks);
+        float e4mm = encoderMM_Y(encoder4Ticks);
+        float e5mm = encoderMM_Y(encoder5Ticks);
         sendResponse("Encoders: E0=" + String(e0mm, 2) + "mm  E1=" + String(e1mm, 2)
-                    + "mm  E2=" + String(e2mm, 2) + "mm  E5=" + String(e3mm, 2) + "mm", source);
+                    + "mm  E2=" + String(e2mm, 2) + "mm  E3=" + String(e3mm, 2)
+                    + "mm  E4=" + String(e4mm, 2) + "mm  E5=" + String(e5mm, 2) + "mm", source);
 
         if (zeroingMode) sendResponse("[JOG & ZERO MODE ACTIVE]", source);
         if (syncAlarm)   sendResponse("[SYNC ALARM ACTIVE]", source);
@@ -348,6 +371,8 @@ void processCommand(String input, InputSource source) {
             encoder1Ticks = 0;
             encoder2Ticks = 0;
             encoder3Ticks = 0;
+            encoder4Ticks = 0;
+            encoder5Ticks = 0;
             sendResponse(">> Zero point SET — all positions reset to 0", source);
             sendPositionUpdate(source);
             return;
@@ -502,6 +527,14 @@ void setup() {
     pinMode(EB3plus, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(EA3plus), handleEncoder3, CHANGE);
 
+    pinMode(EA4plus, INPUT_PULLUP);
+    pinMode(EB4plus, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(EA4plus), handleEncoder4, CHANGE);
+
+    pinMode(EA5plus, INPUT_PULLUP);
+    pinMode(EB5plus, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(EA5plus), handleEncoder5, CHANGE);
+
     delay(500);
     sendResponse("--- System Ready ---", SOURCE_NONE);
 }
@@ -554,7 +587,16 @@ void loop() {
         if (yMoving && !zeroingMode && !syncAlarm) {
             float e2mm = encoderMM_Y(encoder2Ticks);
             float e3mm = encoderMM_Y(encoder3Ticks);
-            float diff = abs(e2mm - e3mm);
+            float e4mm = encoderMM_Y(encoder4Ticks);
+            float e5mm = encoderMM_Y(encoder5Ticks);
+
+            float yVals[4] = { e2mm, e3mm, e4mm, e5mm };
+            float yMax = yVals[0], yMin = yVals[0];
+            for (int i = 1; i < 4; i++) {
+                if (yVals[i] > yMax) yMax = yVals[i];
+                if (yVals[i] < yMin) yMin = yVals[i];
+            }
+            float diff = yMax - yMin;
 
             if (diff > Y_SYNC_THRESHOLD_MM) {
                 for (int i = 0; i < numMotors; i++) {
@@ -563,7 +605,7 @@ void loop() {
                 }
                 syncAlarm = true;
                 alarmSource = "Y";
-                sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E5=" + String(e3mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
+                sendResponse("!!! SYNC ALARM Y — E2=" + String(e2mm, 2) + "mm E3=" + String(e3mm, 2) + "mm E4=" + String(e4mm, 2) + "mm E5=" + String(e5mm, 2) + "mm (diff=" + String(diff, 2) + "mm)", lastSource);
                 sendPositionUpdate(lastSource);
                 // drop into jog mode for realignment
                 syncAlarm = false;  // clear alarm so jog mode works
